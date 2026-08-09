@@ -46,6 +46,14 @@ logger = logging.getLogger(__name__)
 
 
 def main() -> int:
+    """Execute one attempt, publish artifacts/envelope, and post its callback.
+
+    Returns the process exit code: 0 whenever the attempt reached a reportable
+    conclusion, including a document that failed its rules. A non-zero code means
+    the *container* failed, which is what tells the runtime to retry. Note that
+    rules which fail to compile are a reportable conclusion, not a container
+    failure — they surface as an ``rules_invalid`` engine error (D9).
+    """
     started_at = datetime.now(UTC)
 
     try:

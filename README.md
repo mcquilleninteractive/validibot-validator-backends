@@ -143,15 +143,20 @@ Current backend ports:
 
 | Backend | Ports today | Notes |
 | --- | --- | --- |
-| EnergyPlus | `primary_model 1..1` rendered as `input_files[role=primary-model]`; `weather_file 1..1` rendered as `resource_files[type=energyplus_weather]` | Legacy uploaded weather may still appear as `input_files[role=weather]`. |
+| EnergyPlus | `primary_model 1..1` rendered as `input_files[role=primary-model]`; `weather_file 0..1` rendered as `resource_files[type=energyplus_weather]` | Weather bound to a managed workflow resource lands in `resource_files`; weather bound from a submitted file or an upstream artifact lands in `input_files[role=weather]` instead. Both are current. |
 | FMU | `fmu_model 1..1` rendered as `input_files[role=fmu]` | Source may be a library FMU model or a step-owned workflow resource. |
 | SHACL | `data_graph 1..1` rendered as an RDF input file; shapes and ontology currently travel inline in typed `inputs` | Future large/reusable shapes or ontologies should become declared resource/artifact ports. |
 | Schematron | `xml_document 1..1` rendered as an XML input file; Schematron rules currently travel inline in typed `inputs` | Future generated or reusable `.sch` files should become declared resource/artifact ports. |
 | Building benchmark reports | `portfolio_manager_report 1..1` accepts one XLS/XLSX/XML report or ZIP collection; optional `expected_buildings_list 0..1` is a workflow resource | Emits the bounded scalar catalog plus the `portfolio-manager-property-results` JSON artifact. |
+| PDF packages | `pdf_document 1..1` accepts one PDF document | Emits a bounded inventory plus distinct XMP, attachment, associated-file, embedded-file, and semantic-payload artifacts for explicit downstream bindings. |
 
-Backend code should read files by role, and by future optional `port_key` when
-available. Do not add new backends that depend on `input_files[0]` without also
-validating that the declared contract has exactly one compatible file.
+Backend code should find each file by matching its `port_key` first and falling
+back to `role` (for input files) or `type` (for resource files). `port_key` is
+optional on the shared envelope, so matching on it alone will reject valid
+input; matching on `role` alone works but is less precise, because the same
+role can appear in more than one validator. Do not add new backends that depend
+on `input_files[0]` without also validating that the declared contract has
+exactly one compatible file.
 
 ## Important Disclaimers
 

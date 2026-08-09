@@ -209,7 +209,41 @@ def execute_service_request(
 
 
 class ValidatorServiceHandler(BaseHTTPRequestHandler):
-    """Single-request HTTP adapter configured with one backend module."""
+    """Single-request HTTP adapter configured with one backend module.
+
+    The entire HTTP surface of a validator Service is two routes:
+
+    - ``GET /healthz`` — liveness only. Deliberately credential-free and
+      deliberately says nothing about the container's state beyond "the parent
+      process is answering", so an unauthenticated prober learns nothing.
+    - ``POST /v1/execute`` — one ``ServiceExecutionRequest``, executed
+      synchronously. The response is returned only after the child has finished,
+      because Cloud Tasks uses the HTTP status to decide whether to retry.
+
+    **Status codes are the retry protocol**, so each is chosen for what Cloud
+    Tasks will do next rather than for REST tidiness:
+
+    - ``400`` for malformed JSON, a schema violation, or a failed identity check.
+      These will never succeed on retry, and Cloud Tasks stops.
+    - ``204`` for an *expired* attempt. This is the interesting one: nothing ran,
+      but the delivery is acknowledged as successfully handled, because retrying
+      work whose deadline has already passed only burns quota. Expiry is a normal
+      outcome, not an error, and is logged at info level.
+    - ``500`` when the child failed or could not be started, inviting a retry.
+    - ``200`` with ``{"accepted": true}`` when the child exited cleanly. Note that
+      this reports *execution*, not validation success — a validator that found
+      problems in the submission still exits 0 and reports its findings through
+      the callback.
+
+    ``backend_module`` is a class variable rather than an instance attribute
+    because ``BaseHTTPRequestHandler`` constructs a fresh handler per request and
+    offers no hook to pass one in. ``serve()`` sets it once at startup, and it is
+    immutable for the process lifetime — each image serves exactly one validator.
+
+    Request bodies are capped at 32 KiB before being read. The body carries only
+    identifiers and one token; the submission itself is fetched from storage, so
+    anything larger is malformed or hostile and is rejected without buffering.
+    """
 
     backend_module: ClassVar[str]
     server_version = "ValidibotValidatorService/1"

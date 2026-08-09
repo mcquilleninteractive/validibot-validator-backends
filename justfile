@@ -52,7 +52,7 @@ git_sha := `git rev-parse --short HEAD 2>/dev/null || echo "dev"`
 
 # Available validators for local batch build/push/deploy recipes. Release CI
 # selects exactly one backend from backends.toml and does not use this list.
-validators := "energyplus fmu shacl schematron portfolio_manager"
+validators := "energyplus fmu shacl schematron portfolio_manager pdf"
 
 # =============================================================================
 # Default - List Commands
@@ -67,11 +67,11 @@ validators := "energyplus fmu shacl schematron portfolio_manager"
 
 # Run all tests
 test *args:
-    uv run --extra dev --extra fmu --extra shacl --extra schematron --extra portfolio_manager pytest {{args}}
+    uv run --extra dev --extra fmu --extra shacl --extra schematron --extra portfolio_manager --extra pdf pytest {{args}}
 
 # Run tests for a specific validator
 test-validator validator:
-    uv run --extra dev --extra fmu --extra shacl --extra schematron --extra portfolio_manager pytest validator_backends/{{validator}}/tests
+    uv run --extra dev --extra fmu --extra shacl --extra schematron --extra portfolio_manager --extra pdf pytest validator_backends/{{validator}}/tests
 
 # Lint all code
 lint:

@@ -2,8 +2,8 @@
 
 Each backend has separate success and failure callback paths. Runtime tests for
 one validator cannot prove that another backend did not forget to return the
-attempt credentials, so this suite inspects the call structure shared by all
-four entrypoints. The invariant matters because transport authentication alone
+attempt credentials, so this suite inspects the call structure shared by every
+entrypoint. The invariant matters because transport authentication alone
 identifies a runtime; the callback ID and nonce bind the notification to the
 specific input envelope that runtime received.
 """
@@ -19,7 +19,14 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[1]
 BACKEND_ENTRYPOINTS = tuple(
     REPO_ROOT / "validator_backends" / slug / "main.py"
-    for slug in ("energyplus", "fmu", "shacl", "schematron", "portfolio_manager")
+    for slug in (
+        "energyplus",
+        "fmu",
+        "shacl",
+        "schematron",
+        "portfolio_manager",
+        "pdf",
+    )
 )
 EXPECTED_ATTEMPT_KEYWORDS = {
     "callback_id": "input_envelope.context.callback_id",

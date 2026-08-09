@@ -21,7 +21,7 @@ release = true
 [[backend]]
 slug = "fmu"
 provider_resource_slug = "fmu"
-release_version = "0.15.5"
+release_version = "0.15.6"
 dockerfile = "validator_backends/fmu/Dockerfile"
 requirements = "validator_backends/fmu/requirements.txt"
 requirements_lock = "validator_backends/fmu/requirements.lock"

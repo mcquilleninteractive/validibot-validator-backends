@@ -5,10 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased - EnergyPlus 0.16.1; FMU/SHACL/Schematron 0.15.5; Portfolio Manager 0.16.5
+## Unreleased - EnergyPlus 0.16.1; FMU 0.15.6; SHACL/Schematron 0.15.5; Portfolio Manager 0.16.5; PDF 0.1.1
+
+### Added
+
+- Package the PDF validator as a release backend with a pinned container,
+  hash-locked requirements, application SBOM, and explicit pikepdf/qpdf legal
+  material. The backend performs bounded structural inspection and member
+  extraction without rendering PDFs or executing document actions.
+- Add a versioned, digest-pinned CC0 golden/hostile PDF corpus with strict
+  provenance hygiene plus bounded property coverage for traversal, names,
+  selectors, deterministic bundles, and output limits.
 
 ### Changed
 
+- Align every backend image with the published `validibot-shared==0.25.0`
+  artifact-binding and PDF contracts.
 - Delegate IDF/IDD validity, including duplicate object-name rules, to the
   selected EnergyPlus binary and IDD. The legacy `duplicate-names` review-check
   value remains a compatible no-op for saved workflows.
@@ -17,9 +29,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Normalize every full-simulation IDF or epJSON working copy to emit
   `SimpleAndTabular` SQLite data in SI units and include the summary reports
   required for EUI and demand post-processing.
+- Resolve the PDF backend's `pdf_document` input by matching either the item's
+  `port_key` or its `role`, matching the Portfolio Manager backend. `port_key`
+  is optional on the shared envelope, so requiring it alone made the backend
+  reject schema-valid input (ADR-2026-07-06, "Why `port_key` is optional in the
+  schema"). Cardinality is still enforced: exactly one PDF document, never
+  `input_files[0]`.
+- Expand bounded PDF package discovery across the reachable object graph,
+  including generic associated files, RichMedia asset name trees, active and
+  external feature inventory, object metadata, declarations, signatures, and
+  incremental-revision evidence. Enforce filter-chain, decoded ratio, member,
+  graph-depth, finding, and deterministic bundle-output limits fail closed.
+- Identify the EnergyPlus `primary_model` and `weather_file` inputs and the FMU
+  `fmu_model` input by declared `port_key` with a fallback to `role`/`type`,
+  bringing both backends onto the dispatch rule the PDF and Portfolio Manager
+  backends already follow (ADR-2026-07-06, "Why `port_key` is optional in the
+  schema"). `role`/`type` matching, weather supplied through `input_files`,
+  and downloading every file in the envelope are all unchanged.
+- Correct the EnergyPlus weather-channel description in the runner and README.
+  Weather arriving in `input_files` was documented as a legacy upload path; it
+  is in fact the current path whenever the `weather_file` port is bound to a
+  submitted file or an upstream artifact rather than a managed workflow
+  resource. No behaviour change — the comment, helper name, and README row were
+  wrong, not the code.
+- Reject ambiguous EnergyPlus and FMU envelopes instead of resolving them
+  silently. Two items claiming the primary model, weather, or FMU port
+  previously resolved to whichever came last (EnergyPlus) or first (FMU); both
+  now raise. No envelope Django currently builds is affected.
 
 ### Fixed
 
+- Keep direct pikepdf container wrappers alive during graph traversal so Python
+  object-ID reuse cannot make discovery or inventory bytes allocator-dependent.
 - Avoid false duplicate-name findings for repeatable objects whose first field
   is not an IDD-defined unique name, including `Output:Variable` objects using
   the `*` key.

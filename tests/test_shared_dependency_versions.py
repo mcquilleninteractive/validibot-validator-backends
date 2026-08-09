@@ -24,6 +24,7 @@ VALIDATOR_REQUIREMENTS = (
     REPO_ROOT / "validator_backends" / "shacl" / "requirements.txt",
     REPO_ROOT / "validator_backends" / "schematron" / "requirements.txt",
     REPO_ROOT / "validator_backends" / "portfolio_manager" / "requirements.txt",
+    REPO_ROOT / "validator_backends" / "pdf" / "requirements.txt",
 )
 SHARED_PIN_PATTERN = re.compile(r"^validibot-shared==(?P<version>[^\s#]+)$", re.MULTILINE)
 PYPI_SIMPLE_INDEX = "https://pypi.org/simple"

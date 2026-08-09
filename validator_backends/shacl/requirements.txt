@@ -5,8 +5,8 @@
 # matches what authors test against. Keep these in lockstep on every bump.
 pydantic==2.13.4
 httpx==0.28.1
-google-cloud-storage==3.13.0
-google-auth==2.56.2
+google-cloud-storage==3.13.1
+google-auth==2.56.3
 requests==2.34.2
 sentry-sdk==2.66.1
 defusedxml==0.7.1
@@ -22,4 +22,4 @@ lxml==6.1.1
 
 # Validibot shared library (from PyPI).
 # Pin exact version to bust Docker layer cache on upgrades.
-validibot-shared==0.24.0
+validibot-shared==0.25.0

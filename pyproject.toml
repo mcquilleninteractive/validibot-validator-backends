@@ -92,7 +92,7 @@ portfolio_manager = [
 # PDF package inventory and bounded embedded-member extraction. pikepdf exposes
 # qpdf's structural parser without adding a renderer or script engine.
 pdf = [
-    "pikepdf==10.10.0",
+    "pikepdf==10.11.0",
 ]
 
 [project.urls]
@@ -129,6 +129,7 @@ testpaths = [
     "validator_backends/shacl/tests",
     "validator_backends/schematron/tests",
     "validator_backends/portfolio_manager/tests",
+    "validator_backends/pdf/tests",
 ]
 python_files = ["test_*.py", "*_test.py"]
 python_functions = ["test_*"]

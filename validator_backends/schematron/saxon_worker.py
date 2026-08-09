@@ -201,6 +201,19 @@ def run(sch_path: str, xml_path: str, output_path: str) -> int:
 
 
 def main(argv: list[str]) -> int:
+    """Parse the three fixed positional arguments and run one transform.
+
+    This is the subprocess entrypoint, not a container entrypoint. It exists as a
+    separate process because SaxonC is native code that cannot be interrupted
+    in-process — a wall-clock timeout is only enforceable by killing something.
+    The parent in ``engine.py`` supplies the arguments and reads the exit code,
+    so argument handling is deliberately positional and rigid rather than
+    user-friendly.
+
+    Returns one of the ``EXIT_*`` codes, which the parent maps to distinct
+    outcomes — most importantly separating a compile failure in the author's
+    rules from a generic engine error.
+    """
     if len(argv) != EXPECTED_ARG_COUNT:
         print(
             "usage: python -m validator_backends.schematron.saxon_worker "

@@ -54,7 +54,39 @@ ALL_SUMMARY_REPORTS = frozenset(
 
 @dataclass(frozen=True)
 class EnergyPlusInstallationEvidence:
-    """Identity of the EnergyPlus executable and bundled IDD used for a run."""
+    """Identity of the EnergyPlus executable and bundled IDD used for a run.
+
+    Two artifacts decide what an EnergyPlus run means, and both are recorded
+    because either one being wrong corrupts the result in a different way:
+
+    - The **binary** performs the simulation.
+    - The **IDD** (Input Data Dictionary) is the schema the binary uses to parse
+      the model. It ships beside the executable and is located relative to it.
+
+    An IDD from a different release than the binary is the dangerous case,
+    because it usually fails *quietly*: fields shift position between versions,
+    so a model can parse cleanly and simulate to completion while meaning
+    something other than what its author wrote. ``_versions_match`` therefore
+    compares model, binary, and IDD at major/minor precision, and this record is
+    what makes that check possible. It also travels into the output envelope, so
+    a stored result can later be attributed to an exact toolchain rather than to
+    "EnergyPlus".
+
+    The version fields are ``None`` when parsing fails — an unparsable version is
+    recorded as unknown rather than guessed, and version comparison returns
+    ``None`` (indeterminate) instead of a false match.
+
+    Fields:
+        binary_path: Resolved path to the ``energyplus`` executable found on
+            ``PATH``.
+        binary_version: Version parsed from ``energyplus --version``, or ``None``.
+        binary_build: Build identifier from the same output, or ``None``. The
+            build distinguishes two images of the same nominal version.
+        idd_path: Path to ``Energy+.idd``, always resolved beside the binary so a
+            stray IDD elsewhere on the image cannot be picked up.
+        idd_version: Version parsed from the IDD header, or ``None``.
+        idd_build: Build identifier from the IDD header, or ``None``.
+    """
 
     binary_path: Path
     binary_version: str | None
@@ -672,6 +704,11 @@ def _check_hvac_sizing(
                 system_sizing = control.get("do_system_sizing_calculation")
 
     def is_disabled(value: Any) -> bool:
+        """Treat IDF and epJSON spellings of "off" as one value.
+
+        The same setting arrives as the string ``"No"`` from IDF and as boolean
+        ``False`` from epJSON, so both spellings are normalised here.
+        """
         return value is False or str(value).strip().casefold() in {"no", "false", "0"}
 
     if not (is_disabled(zone_sizing) and is_disabled(system_sizing)):
@@ -948,6 +985,41 @@ def run_energyplus_simulation(
     )
 
 
+# Declared Validibot file-port keys for this validator, and the backend-facing
+# role/type vocabulary Django writes alongside them. ``port_key`` is optional on
+# the shared envelope, so each matcher below accepts either identifier -- see
+# ADR-2026-07-06, "Why ``port_key`` is optional in the schema".
+PRIMARY_MODEL_PORT_KEY = "primary_model"
+PRIMARY_MODEL_ROLE = "primary-model"
+WEATHER_FILE_PORT_KEY = "weather_file"
+WEATHER_ROLE = "weather"
+WEATHER_RESOURCE_TYPE = "energyplus_weather"
+
+
+def _matches_primary_model(file_item) -> bool:
+    """Report whether an input file item is the declared primary model."""
+    return file_item.port_key == PRIMARY_MODEL_PORT_KEY or file_item.role == PRIMARY_MODEL_ROLE
+
+
+def _matches_weather_input_file(file_item) -> bool:
+    """Report whether an input file item is the declared weather file.
+
+    The ``weather_file`` port declares ``envelope_channel = resource_files``,
+    but that only holds when the binding resolves to a managed workflow
+    resource. When weather is bound from a submitted file or an upstream
+    artifact, Django renders it into ``input_files`` instead, with
+    ``port_key='weather_file'`` and ``role='weather'`` -- see
+    ``_resolve_energyplus_file_port_items`` in the Django envelope builder.
+    Both channels are current; neither is a compatibility shim.
+    """
+    return file_item.port_key == WEATHER_FILE_PORT_KEY or file_item.role == WEATHER_ROLE
+
+
+def _matches_weather_resource(resource) -> bool:
+    """Report whether a resource file item is the declared weather file."""
+    return resource.port_key == WEATHER_FILE_PORT_KEY or resource.type == WEATHER_RESOURCE_TYPE
+
+
 def _download_input_files(
     input_envelope: EnergyPlusInputEnvelope,
     work_dir: Path,
@@ -958,6 +1030,12 @@ def _download_input_files(
     Input files (submission data) come from input_envelope.input_files.
     Resource files (weather, etc.) come from input_envelope.resource_files.
 
+    Every file in the envelope is downloaded, because a model may reference
+    side files this backend does not interpret. Only the primary model and the
+    weather file are *identified*, and identification matches the declared
+    file-port key first, falling back to the backend-facing ``role`` or
+    ``type`` for envelopes that carry no port key.
+
     Args:
         input_envelope: Input envelope with file URIs
         work_dir: Local working directory
@@ -966,31 +1044,61 @@ def _download_input_files(
         Tuple of (primary model file, optional weather file)
 
     Raises:
-        ValueError: If primary model file or weather file is missing
+        ValueError: If the primary model or weather file is missing, or if more
+            than one item claims the primary model or weather port.
     """
     model_file = None
     weather_file = None
 
+    # Django validates cardinality before launch, but the envelope is untrusted
+    # input here. Check ambiguity up front rather than letting whichever item
+    # happens to come last silently win the assignment below.
+    model_matches = [item for item in input_envelope.input_files if _matches_primary_model(item)]
+    if len(model_matches) > 1:
+        msg = (
+            f"EnergyPlus requires exactly one {PRIMARY_MODEL_PORT_KEY} input "
+            f"file; found {len(model_matches)}."
+        )
+        raise ValueError(msg)
+
     # Download input files (submission data)
     for file_item in input_envelope.input_files:
-        logger.info("Downloading input file: %s (role=%s)", file_item.name, file_item.role)
+        logger.info(
+            "Downloading input file: %s (port_key=%s, role=%s)",
+            file_item.name,
+            file_item.port_key,
+            file_item.role,
+        )
 
         destination = work_dir / file_item.name
         download_verified_file(file_item, destination)
 
         # Track primary model file
-        if file_item.role == "primary-model":
+        if _matches_primary_model(file_item):
             model_file = destination
-        # Legacy: also check input_files for weather (backwards compatibility)
-        if file_item.role == "weather":
+        # Weather bound from a submitted file or an upstream artifact arrives
+        # here rather than in resource_files.
+        elif _matches_weather_input_file(file_item):
             weather_file = destination
 
     # Download resource files (weather, libraries, etc.)
     resource_files = getattr(input_envelope, "resource_files", []) or []
+
+    weather_matches = [
+        resource for resource in resource_files if _matches_weather_resource(resource)
+    ]
+    if len(weather_matches) > 1:
+        msg = (
+            f"EnergyPlus accepts at most one {WEATHER_FILE_PORT_KEY} resource "
+            f"file; found {len(weather_matches)}."
+        )
+        raise ValueError(msg)
+
     for resource in resource_files:
         logger.info(
-            "Downloading resource file: %s (type=%s)",
+            "Downloading resource file: %s (port_key=%s, type=%s)",
             resource.id,
+            resource.port_key,
             resource.type,
         )
 
@@ -999,23 +1107,30 @@ def _download_input_files(
         try:
             download_verified_file(resource, destination)
         except ValueError as exc:
-            if resource.type == "energyplus_weather":
+            if _matches_weather_resource(resource):
                 raise ValueError(
                     f"Weather file missing or unreadable at {resource.uri}",
                 ) from exc
             raise
 
-        # Track weather file from resource_files
-        if resource.type == "energyplus_weather":
+        # Track weather file from resource_files. A managed workflow resource
+        # deliberately supersedes a weather entry found in input_files.
+        if _matches_weather_resource(resource):
             weather_file = destination
 
     if model_file is None:
-        raise ValueError("No primary-model file found in input_files")
+        msg = (
+            "No primary-model file found in input_files "
+            f"(port_key='{PRIMARY_MODEL_PORT_KEY}' or role='{PRIMARY_MODEL_ROLE}')."
+        )
+        raise ValueError(msg)
 
     if weather_file is None and input_envelope.inputs.run_simulation:
         raise ValueError(
-            "No weather file found. Provide weather via resource_files "
-            "(type='energyplus_weather') or input_files (role='weather')."
+            f"No weather file found. Provide the {WEATHER_FILE_PORT_KEY} port "
+            f"via resource_files (port_key='{WEATHER_FILE_PORT_KEY}' or "
+            f"type='{WEATHER_RESOURCE_TYPE}') or input_files "
+            f"(port_key='{WEATHER_FILE_PORT_KEY}' or role='{WEATHER_ROLE}')."
         )
 
     return model_file, weather_file
@@ -1623,6 +1738,13 @@ def _parse_energyplus_diagnostic_text(content: str) -> list[dict[str, Any]]:
     current_is_plain = False
 
     def save_current() -> None:
+        """Flush the diagnostic being accumulated and reset for the next one.
+
+        EnergyPlus writes multi-line diagnostics with continuation markers, so a
+        message is only complete once the next one starts or the file ends. Empty
+        or unclassified buffers are dropped rather than emitted as blank
+        findings.
+        """
         nonlocal current_is_plain, current_kind, current_text
         if current_kind is not None and current_text.strip():
             messages.append(_native_diagnostic_message(current_kind, current_text))

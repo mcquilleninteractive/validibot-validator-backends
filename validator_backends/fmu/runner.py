@@ -275,15 +275,39 @@ def run_fmu_simulation(input_envelope: FMUInputEnvelope) -> tuple[FMUOutputs, Pa
         raise RuntimeError(f"FMU simulation failed: {exc}") from exc
 
 
+# The declared Validibot file-port key for this validator, and the
+# backend-facing role Django writes alongside it. ``port_key`` is optional on
+# the shared envelope, so ``_fmu_model_item`` accepts either identifier -- see
+# ADR-2026-07-06, "Why ``port_key`` is optional in the schema".
+FMU_MODEL_PORT_KEY = "fmu_model"
+FMU_MODEL_ROLE = "fmu"
+
+
+def _fmu_model_item(input_envelope):
+    """Return the one declared FMU model, matching on port key or role.
+
+    The ``fmu_model`` port is declared ``1..1``. Django validates that before
+    launch, but the envelope is untrusted input here, so re-check it: taking
+    the first role match and ignoring the rest -- the previous behaviour --
+    would resolve an ambiguous envelope silently rather than failing loudly.
+    """
+    matches = [
+        item
+        for item in input_envelope.input_files
+        if item.port_key == FMU_MODEL_PORT_KEY or item.role == FMU_MODEL_ROLE
+    ]
+    if len(matches) != 1:
+        msg = (
+            "FMU validation requires exactly one input file on the "
+            f"{FMU_MODEL_PORT_KEY} port; found {len(matches)}."
+        )
+        raise ValueError(msg)
+    return matches[0]
+
+
 def _download_fmu(input_envelope, work_dir: Path) -> Path:
     """Download the FMU referenced in the input envelope to the working directory."""
-    fmu_item = None
-    for file_item in input_envelope.input_files:
-        if file_item.role == "fmu":
-            fmu_item = file_item
-            break
-    if fmu_item is None:
-        raise ValueError("No FMU URI found in input_files")
+    fmu_item = _fmu_model_item(input_envelope)
 
     target = work_dir / "model.fmu"
     download_verified_file(fmu_item, target)

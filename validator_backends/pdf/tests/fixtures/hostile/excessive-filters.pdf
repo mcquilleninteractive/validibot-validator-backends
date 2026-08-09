@@ -1,0 +1,39 @@
+%PDF-1.7
+%¿÷¢þ
+1 0 obj
+<< /Names << /EmbeddedFiles << /Names [ (filters.bin) 2 0 R ] >> >> /Pages 3 0 R /Type /Catalog >>
+endobj
+2 0 obj
+<< /AFRelationship /Data /Desc (Synthetic corpus member) /EF << /F 4 0 R /UF 4 0 R >> /F (filters.bin) /Type /Filespec /UF (filters.bin) >>
+endobj
+3 0 obj
+<< /Count 1 /Kids [ 5 0 R ] /Type /Pages >>
+endobj
+4 0 obj
+<< /Filter [ /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode /FlateDecode ] /Params << /Size 22 >> /Type /EmbeddedFile /Length 22 >>
+stream
+bounded filter fixture
+endstream
+endobj
+5 0 obj
+<< /Contents 6 0 R /MediaBox [ 0 0 200 200 ] /Parent 3 0 R /Resources << >> /Type /Page >>
+endobj
+6 0 obj
+<< /Length 0 >>
+stream
+
+endstream
+endobj
+xref
+0 7
+0000000000 65535 f 
+0000000015 00000 n 
+0000000129 00000 n 
+0000000284 00000 n 
+0000000343 00000 n 
+0000001315 00000 n 
+0000001421 00000 n 
+trailer << /Root 1 0 R /Size 7 /ID [<5180dfa05ca868db76da4908aa537567><5180dfa05ca868db76da4908aa537567>] >>
+startxref
+1470
+%%EOF
