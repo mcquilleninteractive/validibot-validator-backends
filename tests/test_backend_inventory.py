@@ -155,6 +155,29 @@ def test_release_workflow_is_immutable_and_attests_both_sboms():
     assert release_yml.count("push-to-registry: true") == 3
 
 
+def test_release_workflow_blocks_publish_until_repository_release_gate_passes():
+    """No image may publish with invalid inventory or stale generated evidence.
+
+    The release workflow must check every backend, not only the backend selected
+    by the tag. Keeping the gate as a dependency of the publish job prevents a
+    valid tag from bypassing stale lockfiles or application SBOMs elsewhere in
+    the release inventory.
+    """
+    release_yml = RELEASE_WORKFLOW_PATH.read_text(encoding="utf-8")
+    justfile = JUSTFILE_PATH.read_text(encoding="utf-8")
+
+    assert "name: Gate release on inventory, locks, and application SBOMs" in release_yml
+    assert "scripts/backend_inventory.py validate >/dev/null" in release_yml
+    assert "scripts/backend_artifacts.py check\n" in release_yml
+    assert "scripts/backend_artifacts.py check --backend" not in release_yml
+    assert "tests/test_backend_inventory.py" in release_yml
+    assert "tests/test_release_legal_artifacts.py" in release_yml
+    assert "needs: [select-release, test-selected-backend]" in release_yml
+
+    assert "inventory-check:" in justfile
+    assert "check: lint inventory-check artifacts-check licenses test" in justfile
+
+
 def test_ci_exposes_one_aggregate_branch_protection_check():
     """Branch protection must depend on every security and test job together."""
     ci_yml = CI_WORKFLOW_PATH.read_text(encoding="utf-8")

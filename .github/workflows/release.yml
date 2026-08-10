@@ -130,11 +130,16 @@ jobs:
           uv python install 3.13
           uv sync --frozen --extra dev --extra "$BACKEND"
 
-      - name: Verify locked dependencies, application SBOM, and license policy
-        env:
-          BACKEND: ${{ needs.select-release.outputs.backend }}
+      - name: Gate release on inventory, locks, and application SBOMs
         run: |
-          uv run python scripts/backend_artifacts.py check --backend "$BACKEND"
+          uv run python scripts/backend_inventory.py validate >/dev/null
+          uv run python scripts/backend_artifacts.py check
+          uv run pytest \
+            tests/test_backend_inventory.py \
+            tests/test_release_legal_artifacts.py
+
+      - name: Verify selected backend license policy
+        run: |
           uv run python scripts/generate_legal_artifacts.py \
             --policy legal/license-policy.toml \
             --check-only

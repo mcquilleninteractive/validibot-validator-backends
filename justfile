@@ -97,12 +97,16 @@ artifacts:
 artifacts-check:
     uv run python scripts/backend_artifacts.py check
 
+# Verify the release inventory before deriving tags, image names, or build inputs
+inventory-check:
+    uv run python scripts/backend_inventory.py validate > /dev/null
+
 # Reject unknown or unapproved licenses in the installed development environment
 licenses:
     uv run --all-extras python scripts/generate_legal_artifacts.py --policy legal/license-policy.toml --check-only
 
 # Run all checks used before a backend release
-check: lint artifacts-check licenses test
+check: lint inventory-check artifacts-check licenses test
 
 # =============================================================================
 # Docker Build
