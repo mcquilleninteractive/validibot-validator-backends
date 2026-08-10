@@ -19,9 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Prepare every backend for the coordinated `validibot-shared==0.26.0` release,
-  which adds the canonical named file-port selectors. The shared release must
-  be published before pins, generated locks, and application SBOMs are updated.
+- Align every backend with the published `validibot-shared==0.26.0` contract,
+  including direct requirements, hash locks, application SBOMs, and inventory
+  compatibility metadata for the canonical named file-port selectors.
 - Delegate IDF/IDD validity, including duplicate object-name rules, to the
   selected EnergyPlus binary and IDD. The legacy `duplicate-names` review-check
   value remains a compatible no-op for saved workflows.

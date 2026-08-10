@@ -8,4 +8,4 @@ sentry-sdk==2.66.1
 
 # Validibot shared library (from PyPI)
 # Pin exact version to bust Docker layer cache on upgrades.
-validibot-shared==0.25.0
+validibot-shared==0.26.0

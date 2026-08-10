@@ -11,4 +11,4 @@ sentry-sdk==2.66.1
 pikepdf==10.11.0
 
 # Validibot shared library containing the PDF envelope and output contracts.
-validibot-shared==0.25.0
+validibot-shared==0.26.0
