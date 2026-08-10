@@ -238,14 +238,15 @@ Current independently offered versions are:
 
 | Backend | Version |
 | --- | --- |
-| EnergyPlus | `0.16.1` |
-| FMU | `0.15.5` |
-| SHACL | `0.15.5` |
-| Schematron | `0.15.5` |
-| Portfolio Manager | `0.16.5` |
+| EnergyPlus | `0.16.2` |
+| FMU | `0.15.6` |
+| SHACL | `0.15.6` |
+| Schematron | `0.15.6` |
+| Portfolio Manager | `0.16.6` |
+| PDF | `0.1.1` |
 
-Release tags are backend-specific, such as `energyplus-v0.16.1` and
-`portfolio_manager-v0.16.5`. A failed or published tag is never moved or
+Release tags are backend-specific, such as `energyplus-v0.16.2` and
+`portfolio_manager-v0.16.6`. A failed or published tag is never moved or
 reused; the correction receives a new backend version.
 
 ### Reproducible dependencies and legal evidence
