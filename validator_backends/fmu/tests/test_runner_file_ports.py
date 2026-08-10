@@ -110,7 +110,7 @@ def test_rejects_two_candidate_models():
     """
     envelope = _envelope(_fmu_item(name="first.fmu"), _fmu_item(name="second.fmu"))
 
-    with pytest.raises(ValueError, match="exactly one input file"):
+    with pytest.raises(ValueError, match="ambiguous"):
         _fmu_model_item(envelope)
 
 
@@ -122,7 +122,7 @@ def test_rejects_an_envelope_with_no_matching_input():
     """
     envelope = _envelope(_fmu_item(role="primary-model", port_key="some_other_port"))
 
-    with pytest.raises(ValueError, match="exactly one input file"):
+    with pytest.raises(ValueError, match="Required file port"):
         _fmu_model_item(envelope)
 
 
@@ -130,5 +130,5 @@ def test_rejects_an_empty_envelope():
     """A required 1..1 port with nothing bound is a contract violation."""
     envelope = _envelope()
 
-    with pytest.raises(ValueError, match="exactly one input file"):
+    with pytest.raises(ValueError, match="Required file port"):
         _fmu_model_item(envelope)

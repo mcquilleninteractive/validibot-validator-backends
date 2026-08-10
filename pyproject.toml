@@ -42,7 +42,7 @@ dependencies = [
     "google-auth==2.56.3",
     "requests==2.34.2",
     "sentry-sdk==2.66.1",
-    "validibot-shared==0.25.0",
+    "validibot-shared==0.26.0",
 ]
 
 [project.optional-dependencies]

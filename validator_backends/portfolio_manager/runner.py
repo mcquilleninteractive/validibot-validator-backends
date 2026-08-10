@@ -36,6 +36,11 @@ from validibot_shared.validations.envelopes import (
     ValidationMessage,
     ValidationStatus,
 )
+from validibot_shared.validations.file_ports import (
+    FilePortLookupError,
+    select_input_file,
+    select_resource_file,
+)
 
 
 _SUPPORTED_MEMBER_SUFFIXES = {".xls", ".xlsx", ".xml"}
@@ -183,15 +188,11 @@ def run_portfolio_manager_validation(
 
 def _primary_report_item(input_envelope: PortfolioManagerInputEnvelope):
     """Return the uniquely declared submitted report."""
-    matches = [
-        item
-        for item in input_envelope.input_files
-        if item.port_key == "portfolio_manager_report" or item.role == "portfolio-manager-report"
-    ]
-    if len(matches) != 1:
-        msg = "Portfolio Manager execution requires exactly one primary report input"
-        raise ValueError(msg)
-    return matches[0]
+    return select_input_file(
+        input_envelope.input_files,
+        port_key="portfolio_manager_report",
+        legacy_role="portfolio-manager-report",
+    )
 
 
 def _read_zip_collection(
@@ -355,21 +356,22 @@ def _load_ebl(
     collector: _FindingCollector,
 ) -> ExpectedBuildingsList | None:
     """Download and validate the optional immutable EBL resource."""
-    candidates = [
-        item
-        for item in input_envelope.resource_files
-        if item.port_key == "expected_buildings_list" or item.type == "portfolio_manager_ebl_v1"
-    ]
-    if not candidates:
-        return None
-    if len(candidates) != 1:
+    try:
+        item = select_resource_file(
+            input_envelope.resource_files,
+            port_key="expected_buildings_list",
+            legacy_type="portfolio_manager_ebl_v1",
+            required=False,
+        )
+    except FilePortLookupError:
         collector.add(
             "ERROR",
             "portfolio_manager.ebl.ambiguous",
             "Exactly one Expected Buildings List resource may be bound.",
         )
         return None
-    item = candidates[0]
+    if item is None:
+        return None
     destination = workdir / "expected-buildings-list.json"
     try:
         download_verified_file(item, destination)

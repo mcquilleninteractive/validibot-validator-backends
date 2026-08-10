@@ -136,7 +136,7 @@ def test_rejects_an_envelope_with_no_matching_input():
     """
     envelope = _envelope(_pdf_item(port_key="some_other_port", role="primary-model"))
 
-    with pytest.raises(ValueError, match="exactly one input file"):
+    with pytest.raises(ValueError, match="Required file port"):
         _pdf_document_item(envelope)
 
 
@@ -151,7 +151,7 @@ def test_rejects_an_envelope_with_two_matching_inputs():
         _pdf_item(name="second.pdf"),
     )
 
-    with pytest.raises(ValueError, match="exactly one input file"):
+    with pytest.raises(ValueError, match="ambiguous"):
         _pdf_document_item(envelope)
 
 
@@ -159,5 +159,5 @@ def test_rejects_an_empty_envelope():
     """A required `1..1` port with nothing bound is a contract violation."""
     envelope = _envelope()
 
-    with pytest.raises(ValueError, match="exactly one input file"):
+    with pytest.raises(ValueError, match="Required file port"):
         _pdf_document_item(envelope)

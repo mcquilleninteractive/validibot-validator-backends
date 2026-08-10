@@ -143,20 +143,20 @@ Current backend ports:
 
 | Backend | Ports today | Notes |
 | --- | --- | --- |
-| EnergyPlus | `primary_model 1..1` rendered as `input_files[role=primary-model]`; `weather_file 0..1` rendered as `resource_files[type=energyplus_weather]` | Weather bound to a managed workflow resource lands in `resource_files`; weather bound from a submitted file or an upstream artifact lands in `input_files[role=weather]` instead. Both are current. |
-| FMU | `fmu_model 1..1` rendered as `input_files[role=fmu]` | Source may be a library FMU model or a step-owned workflow resource. |
-| SHACL | `data_graph 1..1` rendered as an RDF input file; shapes and ontology currently travel inline in typed `inputs` | Future large/reusable shapes or ontologies should become declared resource/artifact ports. |
-| Schematron | `xml_document 1..1` rendered as an XML input file; Schematron rules currently travel inline in typed `inputs` | Future generated or reusable `.sch` files should become declared resource/artifact ports. |
-| Building benchmark reports | `portfolio_manager_report 1..1` accepts one XLS/XLSX/XML report or ZIP collection; optional `expected_buildings_list 0..1` is a workflow resource | Emits the bounded scalar catalog plus the `portfolio-manager-property-results` JSON artifact. |
-| PDF packages | `pdf_document 1..1` accepts one PDF document | Emits a bounded inventory plus distinct XMP, attachment, associated-file, embedded-file, and semantic-payload artifacts for explicit downstream bindings. |
+| EnergyPlus | `input_files[port_key=primary_model, role=primary-model]`; managed weather uses `resource_files[port_key=weather_file, type=energyplus_weather]` | Weather bound from a submitted file or upstream artifact uses `input_files[port_key=weather_file, role=weather]` instead. Both channels are current. |
+| FMU | `input_files[port_key=fmu_model, role=fmu]` | Source may be a library FMU model or a step-owned workflow resource. |
+| SHACL | `input_files[port_key=data_graph, role=data-graph]`; shapes and ontology currently travel inline in typed `inputs` | Future large/reusable shapes or ontologies should become declared resource/artifact ports. |
+| Schematron | `input_files[port_key=xml_document, role=xml-document]`; Schematron rules currently travel inline in typed `inputs` | Future generated or reusable `.sch` files should become declared resource/artifact ports. |
+| Building benchmark reports | `input_files[port_key=portfolio_manager_report, role=portfolio-manager-report]`; optional `resource_files[port_key=expected_buildings_list]` | Accepts one XLS/XLSX/XML report or ZIP collection and emits the bounded scalar catalog plus the property-results JSON artifact. |
+| PDF packages | `input_files[port_key=pdf_document, role=pdf-document]` | Emits a bounded inventory plus distinct XMP, attachment, associated-file, embedded-file, and semantic-payload artifacts for explicit downstream bindings. |
 
-Backend code should find each file by matching its `port_key` first and falling
-back to `role` (for input files) or `type` (for resource files). `port_key` is
-optional on the shared envelope, so matching on it alone will reject valid
-input; matching on `role` alone works but is less precise, because the same
-role can appear in more than one validator. Do not add new backends that depend
-on `input_files[0]` without also validating that the declared contract has
-exactly one compatible file.
+Backend code must use the shared `select_input_file()` and
+`select_resource_file()` helpers. They match an exact `port_key` and fall back
+to `role` or `type` only when that individual item has no port key. This detail
+matters: an item carrying a different explicit key must not impersonate a port
+through an old role label. The helpers also reject missing and ambiguous inputs
+instead of depending on list order. Do not add backend-local matchers or read
+`input_files[0]`.
 
 ## Important Disclaimers
 
@@ -373,7 +373,7 @@ checkout for the specific test command instead of committing a path source:
 ```bash
 uv run --with-editable ../validibot-shared \
   --extra dev --extra fmu --extra shacl --extra schematron \
-  --extra portfolio_manager pytest
+  --extra portfolio_manager --extra pdf pytest
 ```
 
 ## Deployment Modes

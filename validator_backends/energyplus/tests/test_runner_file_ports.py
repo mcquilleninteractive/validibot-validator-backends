@@ -255,11 +255,13 @@ def test_accepts_weather_in_input_files_identified_by_role_alone(downloads, tmp_
     assert weather_file == tmp_path / "submitted.epw"
 
 
-def test_weather_resource_supersedes_weather_in_input_files(downloads, tmp_path):
-    """When both channels carry weather, the managed resource wins.
+def test_rejects_weather_bound_through_both_envelope_channels(downloads, tmp_path):
+    """One explicit file binding cannot resolve to two different weather files.
 
-    Input files are processed before resource files, so this ordering is what
-    makes the outcome predictable rather than dependent on envelope order.
+    Silently preferring the managed resource would hide the submitted or
+    upstream choice recorded by the workflow. The backend therefore treats a
+    cross-channel duplicate as the same singleton-cardinality violation as two
+    items in one channel.
     """
     envelope = _envelope(
         input_files=[
@@ -275,9 +277,8 @@ def test_weather_resource_supersedes_weather_in_input_files(downloads, tmp_path)
         run_simulation=True,
     )
 
-    _, weather_file = runner._download_input_files(envelope, tmp_path)
-
-    assert weather_file == tmp_path / "melbourne.epw"
+    with pytest.raises(ValueError, match=r"weather_file.*ambiguous across"):
+        runner._download_input_files(envelope, tmp_path)
 
 
 # ── Downloading versus identifying ────────────────────────────────────────
@@ -324,7 +325,7 @@ def test_rejects_two_candidate_primary_models(downloads, tmp_path):
         input_files=[_input_item(name="first.idf"), _input_item(name="second.idf")],
     )
 
-    with pytest.raises(ValueError, match="exactly one primary_model"):
+    with pytest.raises(ValueError, match=r"primary_model.*ambiguous"):
         runner._download_input_files(envelope, tmp_path)
 
 
@@ -339,7 +340,7 @@ def test_rejects_two_candidate_weather_resources(downloads, tmp_path):
         run_simulation=True,
     )
 
-    with pytest.raises(ValueError, match="at most one weather_file"):
+    with pytest.raises(ValueError, match=r"weather_file.*ambiguous"):
         runner._download_input_files(envelope, tmp_path)
 
 
@@ -353,7 +354,7 @@ def test_rejects_an_envelope_with_no_primary_model(downloads, tmp_path):
         input_files=[_input_item(role="something-else", port_key="some_other_port")],
     )
 
-    with pytest.raises(ValueError, match="No primary-model file found"):
+    with pytest.raises(ValueError, match="Required file port 'primary_model'"):
         runner._download_input_files(envelope, tmp_path)
 
 

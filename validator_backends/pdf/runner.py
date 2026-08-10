@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 from validator_backends.core.storage_client import download_verified_file
 from validator_backends.pdf.engine import PdfEngineResult, inspect_pdf
+from validibot_shared.validations.file_ports import select_input_file
 
 
 if TYPE_CHECKING:
@@ -24,28 +25,12 @@ PDF_DOCUMENT_ROLE = "pdf-document"
 
 
 def _pdf_document_item(input_envelope: PdfInputEnvelope) -> InputFileItem:
-    """Return the one declared PDF document, matching on port key or role.
-
-    ``InputFileItem.port_key`` is optional in ``validibot-shared`` (it defaults
-    to ``None``), so an envelope carrying no port key is schema-valid. Matching
-    on ``port_key`` alone would therefore reject input the shared contract
-    permits. Accept either identifier -- the same fallback the Portfolio
-    Manager runner uses -- while still refusing an envelope that does not carry
-    exactly one PDF document, which is what the ``1..1`` port cardinality in
-    ADR-2026-08-07 promises the engine.
-    """
-    matches = [
-        item
-        for item in input_envelope.input_files
-        if item.port_key == PDF_DOCUMENT_PORT_KEY or item.role == PDF_DOCUMENT_ROLE
-    ]
-    if len(matches) != 1:
-        msg = (
-            "PDF validation requires exactly one input file on the "
-            f"{PDF_DOCUMENT_PORT_KEY} port; found {len(matches)}."
-        )
-        raise ValueError(msg)
-    return matches[0]
+    """Return the one declared PDF document through the shared matcher."""
+    return select_input_file(
+        input_envelope.input_files,
+        port_key=PDF_DOCUMENT_PORT_KEY,
+        legacy_role=PDF_DOCUMENT_ROLE,
+    )
 
 
 def run_pdf_validation(input_envelope: PdfInputEnvelope) -> PdfEngineResult:

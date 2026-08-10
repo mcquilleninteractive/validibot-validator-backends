@@ -80,7 +80,8 @@ def _envelope(
             InputFileItem(
                 name="submission.xml",
                 mime_type=SupportedMimeType.APPLICATION_XML,
-                role="primary-model",
+                role="xml-document",
+                port_key="xml_document",
                 uri=f"file://{submission_path}",
                 size_bytes=len(submission_bytes),
                 sha256=submission_sha256,

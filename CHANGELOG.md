@@ -19,8 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Align every backend image with the published `validibot-shared==0.25.0`
-  artifact-binding and PDF contracts.
+- Prepare every backend for the coordinated `validibot-shared==0.26.0` release,
+  which adds the canonical named file-port selectors. The shared release must
+  be published before pins, generated locks, and application SBOMs are updated.
 - Delegate IDF/IDD validity, including duplicate object-name rules, to the
   selected EnergyPlus binary and IDD. The legacy `duplicate-names` review-check
   value remains a compatible no-op for saved workflows.
@@ -29,23 +30,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Normalize every full-simulation IDF or epJSON working copy to emit
   `SimpleAndTabular` SQLite data in SI units and include the summary reports
   required for EUI and demand post-processing.
-- Resolve the PDF backend's `pdf_document` input by matching either the item's
-  `port_key` or its `role`, matching the Portfolio Manager backend. `port_key`
-  is optional on the shared envelope, so requiring it alone made the backend
-  reject schema-valid input (ADR-2026-07-06, "Why `port_key` is optional in the
-  schema"). Cardinality is still enforced: exactly one PDF document, never
-  `input_files[0]`.
+- Resolve every named backend file through the shared selector. It matches the
+  exact `port_key`, uses a legacy role/type only for keyless items, and rejects
+  missing or ambiguous candidates. EnergyPlus, FMU, SHACL, Schematron,
+  Portfolio Manager, and PDF therefore share one fail-closed rule and never
+  depend on `input_files[0]`.
 - Expand bounded PDF package discovery across the reachable object graph,
   including generic associated files, RichMedia asset name trees, active and
   external feature inventory, object metadata, declarations, signatures, and
   incremental-revision evidence. Enforce filter-chain, decoded ratio, member,
   graph-depth, finding, and deterministic bundle-output limits fail closed.
-- Identify the EnergyPlus `primary_model` and `weather_file` inputs and the FMU
-  `fmu_model` input by declared `port_key` with a fallback to `role`/`type`,
-  bringing both backends onto the dispatch rule the PDF and Portfolio Manager
-  backends already follow (ADR-2026-07-06, "Why `port_key` is optional in the
-  schema"). `role`/`type` matching, weather supplied through `input_files`,
-  and downloading every file in the envelope are all unchanged.
+- Keep the keyless role/type fallback required by older schema-valid envelopes,
+  while refusing to reinterpret an item that carries an explicit different
+  port key. Weather supplied through `input_files` and downloading declared
+  side files remain unchanged.
 - Correct the EnergyPlus weather-channel description in the runner and README.
   Weather arriving in `input_files` was documented as a legacy upload path; it
   is in fact the current path whenever the `weather_file` port is bound to a

@@ -29,6 +29,11 @@ from validibot_shared.energyplus.models import (
     EnergyPlusSimulationMetrics,
     EnergyPlusSimulationOutputs,
 )
+from validibot_shared.validations.file_ports import (
+    FilePortLookupError,
+    select_input_file,
+    select_resource_file,
+)
 
 
 if TYPE_CHECKING:
@@ -987,37 +992,13 @@ def run_energyplus_simulation(
 
 # Declared Validibot file-port keys for this validator, and the backend-facing
 # role/type vocabulary Django writes alongside them. ``port_key`` is optional on
-# the shared envelope, so each matcher below accepts either identifier -- see
-# ADR-2026-07-06, "Why ``port_key`` is optional in the schema".
+# the shared envelope. The shared matcher uses these legacy labels only for
+# keyless items; a conflicting explicit key is never reclassified by role/type.
 PRIMARY_MODEL_PORT_KEY = "primary_model"
 PRIMARY_MODEL_ROLE = "primary-model"
 WEATHER_FILE_PORT_KEY = "weather_file"
 WEATHER_ROLE = "weather"
 WEATHER_RESOURCE_TYPE = "energyplus_weather"
-
-
-def _matches_primary_model(file_item) -> bool:
-    """Report whether an input file item is the declared primary model."""
-    return file_item.port_key == PRIMARY_MODEL_PORT_KEY or file_item.role == PRIMARY_MODEL_ROLE
-
-
-def _matches_weather_input_file(file_item) -> bool:
-    """Report whether an input file item is the declared weather file.
-
-    The ``weather_file`` port declares ``envelope_channel = resource_files``,
-    but that only holds when the binding resolves to a managed workflow
-    resource. When weather is bound from a submitted file or an upstream
-    artifact, Django renders it into ``input_files`` instead, with
-    ``port_key='weather_file'`` and ``role='weather'`` -- see
-    ``_resolve_energyplus_file_port_items`` in the Django envelope builder.
-    Both channels are current; neither is a compatibility shim.
-    """
-    return file_item.port_key == WEATHER_FILE_PORT_KEY or file_item.role == WEATHER_ROLE
-
-
-def _matches_weather_resource(resource) -> bool:
-    """Report whether a resource file item is the declared weather file."""
-    return resource.port_key == WEATHER_FILE_PORT_KEY or resource.type == WEATHER_RESOURCE_TYPE
 
 
 def _download_input_files(
@@ -1049,17 +1030,34 @@ def _download_input_files(
     """
     model_file = None
     weather_file = None
+    resource_files = getattr(input_envelope, "resource_files", []) or []
 
     # Django validates cardinality before launch, but the envelope is untrusted
-    # input here. Check ambiguity up front rather than letting whichever item
-    # happens to come last silently win the assignment below.
-    model_matches = [item for item in input_envelope.input_files if _matches_primary_model(item)]
-    if len(model_matches) > 1:
+    # input here. Resolve every singleton before downloading anything, then
+    # compare by object identity in the loops below so list order is irrelevant.
+    model_item = select_input_file(
+        input_envelope.input_files,
+        port_key=PRIMARY_MODEL_PORT_KEY,
+        legacy_role=PRIMARY_MODEL_ROLE,
+    )
+    weather_input_item = select_input_file(
+        input_envelope.input_files,
+        port_key=WEATHER_FILE_PORT_KEY,
+        legacy_role=WEATHER_ROLE,
+        required=False,
+    )
+    weather_resource_item = select_resource_file(
+        resource_files,
+        port_key=WEATHER_FILE_PORT_KEY,
+        legacy_type=WEATHER_RESOURCE_TYPE,
+        required=False,
+    )
+    if weather_input_item is not None and weather_resource_item is not None:
         msg = (
-            f"EnergyPlus requires exactly one {PRIMARY_MODEL_PORT_KEY} input "
-            f"file; found {len(model_matches)}."
+            f"File port '{WEATHER_FILE_PORT_KEY}' is ambiguous across input_files "
+            "and resource_files."
         )
-        raise ValueError(msg)
+        raise FilePortLookupError(msg)
 
     # Download input files (submission data)
     for file_item in input_envelope.input_files:
@@ -1074,26 +1072,14 @@ def _download_input_files(
         download_verified_file(file_item, destination)
 
         # Track primary model file
-        if _matches_primary_model(file_item):
+        if file_item is model_item:
             model_file = destination
         # Weather bound from a submitted file or an upstream artifact arrives
         # here rather than in resource_files.
-        elif _matches_weather_input_file(file_item):
+        elif file_item is weather_input_item:
             weather_file = destination
 
     # Download resource files (weather, libraries, etc.)
-    resource_files = getattr(input_envelope, "resource_files", []) or []
-
-    weather_matches = [
-        resource for resource in resource_files if _matches_weather_resource(resource)
-    ]
-    if len(weather_matches) > 1:
-        msg = (
-            f"EnergyPlus accepts at most one {WEATHER_FILE_PORT_KEY} resource "
-            f"file; found {len(weather_matches)}."
-        )
-        raise ValueError(msg)
-
     for resource in resource_files:
         logger.info(
             "Downloading resource file: %s (port_key=%s, type=%s)",
@@ -1107,23 +1093,15 @@ def _download_input_files(
         try:
             download_verified_file(resource, destination)
         except ValueError as exc:
-            if _matches_weather_resource(resource):
+            if resource is weather_resource_item:
                 raise ValueError(
                     f"Weather file missing or unreadable at {resource.uri}",
                 ) from exc
             raise
 
-        # Track weather file from resource_files. A managed workflow resource
-        # deliberately supersedes a weather entry found in input_files.
-        if _matches_weather_resource(resource):
+        # A valid envelope supplies the weather through exactly one channel.
+        if resource is weather_resource_item:
             weather_file = destination
-
-    if model_file is None:
-        msg = (
-            "No primary-model file found in input_files "
-            f"(port_key='{PRIMARY_MODEL_PORT_KEY}' or role='{PRIMARY_MODEL_ROLE}')."
-        )
-        raise ValueError(msg)
 
     if weather_file is None and input_envelope.inputs.run_simulation:
         raise ValueError(

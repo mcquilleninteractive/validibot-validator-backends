@@ -47,12 +47,16 @@ from validibot_shared.validations.envelopes import (
     ValidationMessage,
     ValidationStatus,
 )
+from validibot_shared.validations.file_ports import select_input_file
 
 
 if TYPE_CHECKING:
     from validibot_shared.shacl.envelopes import SHACLInputEnvelope
 
 logger = logging.getLogger(__name__)
+
+DATA_GRAPH_PORT_KEY = "data_graph"
+DATA_GRAPH_ROLE = "data-graph"
 
 # Map the container's finding-severity strings to the shared Severity enum for
 # the generic ``messages`` list. SUCCESS has no Severity member, so success
@@ -227,11 +231,18 @@ def run_shacl_validation(input_envelope: SHACLInputEnvelope) -> SHACLRunResult:
 # =============================================================================
 
 
+def _data_graph_item(input_envelope: SHACLInputEnvelope):
+    """Return the SHACL data graph through the shared matcher."""
+    return select_input_file(
+        input_envelope.input_files,
+        port_key=DATA_GRAPH_PORT_KEY,
+        legacy_role=DATA_GRAPH_ROLE,
+    )
+
+
 def _download_submission(input_envelope: SHACLInputEnvelope) -> str:
     """Download the RDF submission file and return its text content."""
-    if not input_envelope.input_files:
-        raise ValueError("SHACL input envelope has no input_files")
-    file_item = input_envelope.input_files[0]
+    file_item = _data_graph_item(input_envelope)
     with tempfile.TemporaryDirectory() as tmp:
         dest = Path(tmp) / "submission.rdf"
         download_verified_file(file_item, dest)
