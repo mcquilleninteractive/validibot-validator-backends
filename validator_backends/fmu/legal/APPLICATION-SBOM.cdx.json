@@ -225,18 +225,18 @@
       "version": "5.11.0"
     },
     {
-      "bom-ref": "numpy-33@2.5.1",
+      "bom-ref": "numpy-33@2.5.2",
       "name": "numpy",
-      "purl": "pkg:pypi/numpy@2.5.1",
+      "purl": "pkg:pypi/numpy@2.5.2",
       "type": "library",
-      "version": "2.5.1"
+      "version": "2.5.2"
     },
     {
-      "bom-ref": "platformdirs-34@4.11.0",
+      "bom-ref": "platformdirs-34@4.11.1",
       "name": "platformdirs",
-      "purl": "pkg:pypi/platformdirs@4.11.0",
+      "purl": "pkg:pypi/platformdirs@4.11.1",
       "type": "library",
-      "version": "4.11.0"
+      "version": "4.11.1"
     },
     {
       "bom-ref": "proto-plus-35@1.28.3",
@@ -406,7 +406,7 @@
         "lxml-29@6.1.1",
         "msgpack-31@1.2.1",
         "nbformat-32@5.11.0",
-        "numpy-33@2.5.1"
+        "numpy-33@2.5.2"
       ],
       "ref": "fmpy-12@0.3.30"
     },
@@ -505,7 +505,7 @@
     },
     {
       "dependsOn": [
-        "platformdirs-34@4.11.0",
+        "platformdirs-34@4.11.1",
         "traitlets-46@5.16.1"
       ],
       "ref": "jupyter-core-27@5.9.1"
@@ -532,10 +532,10 @@
       "ref": "nbformat-32@5.11.0"
     },
     {
-      "ref": "numpy-33@2.5.1"
+      "ref": "numpy-33@2.5.2"
     },
     {
-      "ref": "platformdirs-34@4.11.0"
+      "ref": "platformdirs-34@4.11.1"
     },
     {
       "dependsOn": [
@@ -647,7 +647,7 @@
       }
     ]
   },
-  "serialNumber": "urn:uuid:c494bc10-5f4b-509d-8ba7-c74badfc5bcb",
+  "serialNumber": "urn:uuid:b356b59d-f5b1-5dc9-8ec9-95c01824e755",
   "specVersion": "1.5",
   "version": 1
 }

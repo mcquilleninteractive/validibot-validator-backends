@@ -418,7 +418,7 @@
   ],
   "metadata": {
     "component": {
-      "bom-ref": "validibot-validator-backend-schematron@0.15.5",
+      "bom-ref": "validibot-validator-backend-schematron@0.15.6",
       "name": "validibot-validator-backend-schematron",
       "properties": [
         {
@@ -431,7 +431,7 @@
         }
       ],
       "type": "application",
-      "version": "0.15.5"
+      "version": "0.15.6"
     },
     "tools": [
       {
@@ -441,7 +441,7 @@
       }
     ]
   },
-  "serialNumber": "urn:uuid:1492b7f0-6bac-568b-8718-7e7311bbcdff",
+  "serialNumber": "urn:uuid:af3a3c30-52f6-5202-9a18-8bea9ae92d09",
   "specVersion": "1.5",
   "version": 1
 }

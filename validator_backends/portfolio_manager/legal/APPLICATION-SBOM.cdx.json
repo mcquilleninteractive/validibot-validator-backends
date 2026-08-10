@@ -441,7 +441,7 @@
   ],
   "metadata": {
     "component": {
-      "bom-ref": "validibot-validator-backend-portfolio-manager@0.16.5",
+      "bom-ref": "validibot-validator-backend-portfolio-manager@0.16.6",
       "name": "validibot-validator-backend-portfolio-manager",
       "properties": [
         {
@@ -454,7 +454,7 @@
         }
       ],
       "type": "application",
-      "version": "0.16.5"
+      "version": "0.16.6"
     },
     "tools": [
       {
@@ -464,7 +464,7 @@
       }
     ]
   },
-  "serialNumber": "urn:uuid:8015f6e3-dc1c-535c-a084-bfd31b7edde5",
+  "serialNumber": "urn:uuid:7b5df999-b99a-5b95-a37a-3ba65d56b51c",
   "specVersion": "1.5",
   "version": 1
 }

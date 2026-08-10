@@ -514,7 +514,7 @@
   ],
   "metadata": {
     "component": {
-      "bom-ref": "validibot-validator-backend-shacl@0.15.5",
+      "bom-ref": "validibot-validator-backend-shacl@0.15.6",
       "name": "validibot-validator-backend-shacl",
       "properties": [
         {
@@ -527,7 +527,7 @@
         }
       ],
       "type": "application",
-      "version": "0.15.5"
+      "version": "0.15.6"
     },
     "tools": [
       {
@@ -537,7 +537,7 @@
       }
     ]
   },
-  "serialNumber": "urn:uuid:a493561c-662b-58a6-98bc-46a69b4eff5e",
+  "serialNumber": "urn:uuid:f37fec28-bfe8-588a-80f3-ee215380607c",
   "specVersion": "1.5",
   "version": 1
 }
