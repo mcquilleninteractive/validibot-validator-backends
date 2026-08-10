@@ -20,23 +20,43 @@ from validibot_shared.pdf import PdfInputs, PdfPayloadSelector, PdfProcessingLim
 from validibot_shared.validations.envelopes import ValidationStatus
 
 
+_FIXTURE_MEDIA_TYPES_BY_SUFFIX = {
+    ".json": "application/json",
+    ".p21": "model/step",
+    ".xml": "application/xml",
+}
+
+
 def _pdf_with_attachments(
     tmp_path: Path,
     attachments: dict[str, bytes],
     *,
     active_javascript: bool = False,
+    declared_media_types: dict[str, str] | None = None,
 ) -> Path:
-    """Create one synthetic PDF with catalog EmbeddedFiles entries."""
+    """Create a PDF whose attachment declarations are host-independent.
+
+    Operating systems maintain different filename-to-MIME registries. Tests
+    must declare the intended fixture metadata explicitly so identical source
+    bytes exercise identical validator paths everywhere.
+    """
     pdf = pikepdf.new()
     pdf.add_blank_page(page_size=(200, 200))
+    declared_media_types = declared_media_types or {}
     for name, content in attachments.items():
-        extension = Path(name).suffix or ".bin"
-        source = tmp_path / f"source-{len(pdf.attachments)}{extension}"
-        source.write_bytes(content)
-        spec = pikepdf.AttachedFileSpec.from_filepath(
+        extension = Path(name).suffix.lower()
+        spec = pikepdf.AttachedFileSpec(
             pdf,
-            source,
+            content,
             description=f"fixture {name}",
+            filename=name,
+            mime_type=declared_media_types.get(
+                name,
+                _FIXTURE_MEDIA_TYPES_BY_SUFFIX.get(
+                    extension,
+                    "application/octet-stream",
+                ),
+            ),
             relationship=pikepdf.Name("/Data"),
         )
         spec.obj["/UF"] = pikepdf.String(name)
@@ -155,6 +175,39 @@ def test_one_attempt_can_emit_all_six_fixed_artifacts(tmp_path: Path) -> None:
     }
     assert result.artifact_payloads["selected_xml"] == xml
     assert result.artifact_payloads["selected_json"] == json_payload
+    assert result.artifact_payloads["selected_step_p21"] == step
+
+
+def test_step_selector_accepts_both_registered_part_21_media_types(
+    tmp_path: Path,
+) -> None:
+    """A valid ISO media-type alias must not become a false conflict finding."""
+    step = (
+        b"ISO-10303-21;\nHEADER;\n"
+        b"FILE_SCHEMA(('AP242_MANAGED_MODEL_BASED_3D_ENGINEERING_MIM_LF'));\n"
+        b"ENDSEC;\nDATA;\nENDSEC;\nEND-ISO-10303-21;\n"
+    )
+    path = _pdf_with_attachments(
+        tmp_path,
+        {"assembly.p21": step},
+        declared_media_types={"assembly.p21": "application/p21"},
+    )
+
+    result = inspect_pdf(
+        path,
+        source_name=path.name,
+        inputs=PdfInputs(
+            selected_step_p21=PdfPayloadSelector(original_filename="assembly.p21"),
+        ),
+    )
+
+    assert result.status == ValidationStatus.SUCCESS, [
+        (message.code, message.text) for message in result.messages
+    ]
+    member = result.outputs.inventory.members[0]
+    assert member.declared_media_type == "application/p21"
+    assert member.detected_media_type == "model/step"
+    assert "declared_type_mismatch" not in member.risk_flags
     assert result.artifact_payloads["selected_step_p21"] == step
 
 

@@ -453,7 +453,7 @@
   ],
   "metadata": {
     "component": {
-      "bom-ref": "validibot-validator-backend-pdf@0.1.1",
+      "bom-ref": "validibot-validator-backend-pdf@0.1.2",
       "name": "validibot-validator-backend-pdf",
       "properties": [
         {
@@ -466,7 +466,7 @@
         }
       ],
       "type": "application",
-      "version": "0.1.1"
+      "version": "0.1.2"
     },
     "tools": [
       {
@@ -476,7 +476,7 @@
       }
     ]
   },
-  "serialNumber": "urn:uuid:726efb2c-3f58-5336-a05d-4dc99060c44a",
+  "serialNumber": "urn:uuid:59b343b4-878d-5881-a995-97547e56c7c0",
   "specVersion": "1.5",
   "version": 1
 }

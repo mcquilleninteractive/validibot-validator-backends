@@ -243,7 +243,7 @@ Current independently offered versions are:
 | SHACL | `0.15.6` |
 | Schematron | `0.15.6` |
 | Portfolio Manager | `0.16.6` |
-| PDF | `0.1.1` |
+| PDF | `0.1.2` |
 
 Release tags are backend-specific, such as `energyplus-v0.16.2` and
 `portfolio_manager-v0.16.6`. A failed or published tag is never moved or

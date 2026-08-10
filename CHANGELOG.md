@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased - EnergyPlus 0.16.2; FMU/SHACL/Schematron 0.15.6; Portfolio Manager 0.16.6; PDF 0.1.1
+## Unreleased - EnergyPlus 0.16.2; FMU/SHACL/Schematron 0.15.6; Portfolio Manager 0.16.6; PDF 0.1.2
 
 ### Added
 
@@ -57,6 +57,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Treat the IANA-registered `application/p21` and `model/step` declarations as
+  equivalent for STEP Part 21 payloads. This prevents the producer's operating
+  system MIME registry from turning valid, correctly detected STEP bytes into
+  a false declared-type conflict.
 - Keep direct pikepdf container wrappers alive during graph traversal so Python
   object-ID reuse cannot make discovery or inventory bytes allocator-dependent.
 - Avoid false duplicate-name findings for repeatable objects whose first field

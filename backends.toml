@@ -93,7 +93,7 @@ release = true
 [[backend]]
 slug = "pdf"
 provider_resource_slug = "pdf"
-release_version = "0.1.1"
+release_version = "0.1.2"
 dockerfile = "validator_backends/pdf/Dockerfile"
 requirements = "validator_backends/pdf/requirements.txt"
 requirements_lock = "validator_backends/pdf/requirements.lock"

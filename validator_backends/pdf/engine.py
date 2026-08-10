@@ -1587,12 +1587,18 @@ def _safe_int(value) -> int | None:
 
 
 def _media_types_equivalent(declared: str, detected: str) -> bool:
-    """Treat the conventional XML aliases as equivalent carrier declarations."""
+    """Treat registered aliases for the same carrier as equivalent."""
     if declared == "application/octet-stream":
         return True
     if declared == detected:
         return True
-    return {declared, detected} <= {"application/xml", "text/xml"}
+    return (
+        {declared, detected} <= {"application/xml", "text/xml"}
+        # ISO registered both names for STEP Part 21. Accepting the pair keeps
+        # validation about the submitted bytes rather than the producer's MIME
+        # database while still rejecting declarations for a different carrier.
+        or {declared, detected} <= {"application/p21", "model/step"}
+    )
 
 
 def _safe_extension(record: _MemberRecord) -> str:
