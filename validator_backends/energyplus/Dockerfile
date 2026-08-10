@@ -11,21 +11,34 @@
 # =============================================================================
 # Stage 1: Build EnergyPlus
 # =============================================================================
-FROM ubuntu:22.04 AS energyplus-builder
+# Builder image pinned to the reviewed Ubuntu 22.04 multi-platform index.
+FROM ubuntu:22.04@sha256:3b06811b2afd352be909dd088a004166d665dc76d38b13eada33522a9d915c6f AS energyplus-builder
 
-# Install EnergyPlus build dependencies
+# Install only the tooling needed to retrieve and verify EnergyPlus.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     wget \
     && rm -rf /var/lib/apt/lists/*
 
-# Download and install EnergyPlus 25.2.0 (latest as of Dec 2024)
-# Update this URL for different EnergyPlus versions
-# Check releases at: https://github.com/NREL/EnergyPlus/releases
-RUN wget -q https://github.com/NREL/EnergyPlus/releases/download/v25.2.0/EnergyPlus-25.2.0-cf7368216c-Linux-Ubuntu22.04-x86_64.tar.gz \
-    && tar -xzf EnergyPlus-25.2.0-cf7368216c-Linux-Ubuntu22.04-x86_64.tar.gz \
-    && mv EnergyPlus-25.2.0-cf7368216c-Linux-Ubuntu22.04-x86_64 /opt/energyplus \
-    && rm EnergyPlus-25.2.0-cf7368216c-Linux-Ubuntu22.04-x86_64.tar.gz
+# Download the exact EnergyPlus 25.2.0 Ubuntu x86-64 release asset. The digest
+# is published in the upstream v25.2.0 GitHub release metadata. Verification
+# must succeed before any archive bytes are extracted into the trusted image
+# filesystem.
+RUN set -eux; \
+    energyplus_version="25.2.0"; \
+    energyplus_build_id="cf7368216c"; \
+    archive_name="EnergyPlus-${energyplus_version}-${energyplus_build_id}-Linux-Ubuntu22.04-x86_64.tar.gz"; \
+    archive_path="/tmp/${archive_name}"; \
+    extracted_path="/tmp/${archive_name%.tar.gz}"; \
+    expected_sha256="e454fecd0f40be2e7ad8b574722b58ef8b9adc15aadfa31716f1c70a93ced4da"; \
+    wget --quiet --https-only --secure-protocol=TLSv1_2 \
+        --output-document="${archive_path}" \
+        "https://github.com/NatLabRockies/EnergyPlus/releases/download/v${energyplus_version}/${archive_name}"; \
+    echo "${expected_sha256}  ${archive_path}" \
+        | sha256sum --check --strict -; \
+    tar -xzf "${archive_path}" -C /tmp; \
+    mv "${extracted_path}" /opt/energyplus; \
+    rm "${archive_path}"
 
 # =============================================================================
 # Stage 2: Runtime container

@@ -67,6 +67,27 @@ def test_every_backend_dockerfile_embeds_legal_artifacts_and_minimal_source():
         ) not in dockerfile
 
 
+def test_energyplus_builder_and_upstream_archive_are_immutable():
+    """EnergyPlus must be verified before its third-party bytes are extracted.
+
+    EnergyPlus is the largest native-code component in the validator fleet.
+    Pinning both its builder filesystem and its release asset prevents a mutable
+    tag, redirect, or replaced download from silently changing a trusted image.
+    """
+    dockerfile = (REPO_ROOT / "validator_backends" / "energyplus" / "Dockerfile").read_text(
+        encoding="utf-8"
+    )
+
+    assert (
+        "FROM ubuntu:22.04@sha256:3b06811b2afd352be909dd088a004166d665dc76d38b13eada33522a9d915c6f"
+    ) in dockerfile
+    assert "FROM ubuntu:22.04 AS" not in dockerfile
+    assert "--https-only --secure-protocol=TLSv1_2" in dockerfile
+    assert "e454fecd0f40be2e7ad8b574722b58ef8b9adc15aadfa31716f1c70a93ced4da" in dockerfile
+    assert "sha256sum --check --strict -" in dockerfile
+    assert dockerfile.index("sha256sum --check --strict -") < dockerfile.index("tar -xzf")
+
+
 def test_pdf_image_bundles_the_native_qpdf_license_and_notice():
     """The qpdf binary inside pikepdf must remain legally discoverable.
 

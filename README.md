@@ -268,6 +268,14 @@ wheel-provided license files. Release CI also publishes an image-level SPDX
 SBOM that includes the base operating system. License-policy checks fail closed
 on new, unknown, or unapproved dependency licenses.
 
+EnergyPlus adds a second native supply-chain boundary. Its Ubuntu builder image
+is pinned by OCI digest, and the exact upstream EnergyPlus archive is checked
+against the SHA-256 published in the corresponding GitHub release metadata
+before extraction. When upgrading EnergyPlus, update the version, upstream
+build ID, and reviewed SHA-256 together, then run
+`tests/test_release_legal_artifacts.py` and build the amd64 image. Never replace
+the archive URL without also reviewing and updating its checksum.
+
 #### Wrapper version vs bundled-library version (CRUCIAL)
 
 `VALIDATOR_BACKEND_VERSION` is **OUR backend wrapper's version** — the
@@ -279,7 +287,7 @@ version axes:
 
 | Axis | Value | Bumped when |
 |---|---|---|
-| Wrapper version (`backends.toml` `release_version`) | `0.16.0` | Wrapper code, image layout, or output semantics change |
+| Wrapper version (`backends.toml` `release_version`) | `0.16.2` | Wrapper code, image layout, or output semantics change |
 | Bundled EnergyPlus binary | `25.2.0` | A newer EnergyPlus release is downloaded |
 
 These are independent:
