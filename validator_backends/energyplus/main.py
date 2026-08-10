@@ -282,6 +282,7 @@ def _rewrite_output_paths(
     sim_outputs = outputs.outputs
 
     def _map(name: str, current: Path | None) -> Path | str | None:
+        """Swap one local path for its uploaded URI, or keep it if not uploaded."""
         if name in uri_by_name:
             return uri_by_name[name]
         return current

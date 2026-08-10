@@ -72,3 +72,7 @@ db.sqlite3
 .env
 .env.*
 !.env.example
+
+
+# AI
+AGENTS.md

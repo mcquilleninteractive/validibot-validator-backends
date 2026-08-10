@@ -21,6 +21,7 @@ from validator_backends.core.storage_client import (
     download_verified_file,
 )
 from validibot_shared.fmu.envelopes import FMUOutputs
+from validibot_shared.validations.file_ports import select_input_file
 
 
 if TYPE_CHECKING:
@@ -275,15 +276,26 @@ def run_fmu_simulation(input_envelope: FMUInputEnvelope) -> tuple[FMUOutputs, Pa
         raise RuntimeError(f"FMU simulation failed: {exc}") from exc
 
 
+# The declared Validibot file-port key for this validator, and the
+# backend-facing role Django writes alongside it. ``port_key`` is optional on
+# the shared envelope. The shared matcher uses this legacy role only for
+# keyless items; a conflicting explicit key is never reclassified by role.
+FMU_MODEL_PORT_KEY = "fmu_model"
+FMU_MODEL_ROLE = "fmu"
+
+
+def _fmu_model_item(input_envelope):
+    """Return the one declared FMU model through the shared matcher."""
+    return select_input_file(
+        input_envelope.input_files,
+        port_key=FMU_MODEL_PORT_KEY,
+        legacy_role=FMU_MODEL_ROLE,
+    )
+
+
 def _download_fmu(input_envelope, work_dir: Path) -> Path:
     """Download the FMU referenced in the input envelope to the working directory."""
-    fmu_item = None
-    for file_item in input_envelope.input_files:
-        if file_item.role == "fmu":
-            fmu_item = file_item
-            break
-    if fmu_item is None:
-        raise ValueError("No FMU URI found in input_files")
+    fmu_item = _fmu_model_item(input_envelope)
 
     target = work_dir / "model.fmu"
     download_verified_file(fmu_item, target)

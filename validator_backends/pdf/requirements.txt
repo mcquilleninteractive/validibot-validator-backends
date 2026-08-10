@@ -1,0 +1,14 @@
+# Runtime dependencies for the isolated PDF package validator.
+pydantic==2.13.4
+httpx==0.28.1
+google-cloud-storage==3.13.1
+google-auth==2.56.3
+requests==2.34.2
+sentry-sdk==2.66.1
+
+# Structural PDF inspection only. The pikepdf wheel bundles qpdf; this backend
+# does not include a renderer or execute document actions.
+pikepdf==10.11.0
+
+# Validibot shared library containing the PDF envelope and output contracts.
+validibot-shared==0.26.0

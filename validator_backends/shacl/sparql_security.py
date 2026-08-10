@@ -88,7 +88,29 @@ class SparqlScrubError(ValueError):
 
 @dataclass(frozen=True)
 class ScrubLimits:
-    """Resolved limits for a single scrub invocation."""
+    """Resolved limits for a single scrub invocation.
+
+    Passed explicitly rather than read from module globals so tests can exercise
+    boundary behaviour without mutating process state, and so a future caller
+    could tighten limits per invocation.
+
+    These are the container's own conservative caps. Django enforces its copy
+    from settings (``SHACL_SPARQL_QUERY_LENGTH_MAX`` and
+    ``SHACL_SPARQL_PROPERTY_PATH_DEPTH_MAX``) when the query is saved; there is
+    no settings layer here, so :func:`resolve_limits` returns fixed module
+    defaults. This is second-line defence, not the primary gate — the values are
+    intentionally allowed to be stricter than Django's.
+
+    Fields:
+        max_query_length: Ceiling on raw query characters, applied before
+            parsing. Cheap rejection of a query large enough to make parsing
+            itself the attack.
+        max_property_path_depth: Ceiling on nesting of property path operators
+            (``/``, ``|``, ``*``, ``+``, ``^``, ``!``). Deeply nested paths are
+            the compact way to express an expensive traversal — a short query can
+            still cost enormous evaluation time — so depth is bounded
+            independently of length.
+    """
 
     max_query_length: int
     max_property_path_depth: int

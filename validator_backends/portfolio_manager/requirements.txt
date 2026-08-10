@@ -1,11 +1,11 @@
 # Runtime dependencies for the isolated Portfolio Manager validator.
 pydantic==2.13.4
 httpx==0.28.1
-google-cloud-storage==3.13.0
-google-auth==2.56.2
+google-cloud-storage==3.13.1
+google-auth==2.56.3
 requests==2.34.2
 sentry-sdk==2.66.1
 defusedxml==0.7.1
 openpyxl==3.1.5
 xlrd==2.0.2
-validibot-shared==0.24.0
+validibot-shared==0.26.0

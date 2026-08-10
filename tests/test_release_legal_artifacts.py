@@ -65,3 +65,23 @@ def test_every_backend_dockerfile_embeds_legal_artifacts_and_minimal_source():
         assert (
             "COPY --chown=validibot:validibot validator_backends /app/validator_backends"
         ) not in dockerfile
+
+
+def test_pdf_image_bundles_the_native_qpdf_license_and_notice():
+    """The qpdf binary inside pikepdf must remain legally discoverable.
+
+    Python distribution metadata covers pikepdf itself, but qpdf is a bundled
+    native library rather than a separately installed Python distribution.
+    Keep its Apache license and upstream notice explicit in the image.
+    """
+    dockerfile = (REPO_ROOT / "validator_backends" / "pdf" / "Dockerfile").read_text(
+        encoding="utf-8"
+    )
+    qpdf_legal_dir = REPO_ROOT / "legal" / "qpdf-12.3.2"
+
+    assert "legal/qpdf-12.3.2/LICENSE.txt" in dockerfile
+    assert "legal/qpdf-12.3.2/NOTICE.md" in dockerfile
+    assert (
+        (qpdf_legal_dir / "LICENSE.txt").read_text(encoding="utf-8").startswith("Apache License")
+    )
+    assert "qpdf is copyright" in (qpdf_legal_dir / "NOTICE.md").read_text(encoding="utf-8")

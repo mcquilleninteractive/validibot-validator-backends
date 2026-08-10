@@ -561,7 +561,47 @@ def _run_pyshacl_with_timeout(
 
 @dataclass(frozen=True)
 class SparqlAskAssertion:
-    """One author-defined SPARQL ASK assertion (engine-internal form)."""
+    """One author-defined SPARQL ASK assertion (engine-internal form).
+
+    A SHACL run answers "does this data satisfy these shapes". SPARQL ASK
+    assertions let an author additionally ask a yes/no question — either of the
+    data itself or of the validation report SHACL just produced. An ASK returning
+    ``false`` is the failure case, so assertions are written as statements that
+    should hold.
+
+    This is the engine-internal shape. ``run_sparql_ask_assertions`` accepts
+    anything with these attributes, which is how the same code path serves both
+    this class and the shared ``SHACLSparqlAssertionSpec`` from the envelope
+    without either package depending on the other.
+
+    Every query is re-scrubbed immediately before execution even though Django
+    scrubbed it at save time — the standing defence-in-depth posture, since by
+    the time a query reaches here it has crossed a process boundary as JSON.
+
+    Fields:
+        target_graph: Which graph to query. ``"data"`` is the submitted data,
+            ``"results"`` is the SHACL validation report, and ``"union"`` is
+            both. Querying ``results`` is what enables meta-assertions such as
+            "no violation was reported for any node of this class". An unknown
+            value produces an engine-error finding rather than an exception.
+        query: The SPARQL ASK query text.
+        severity: Severity for the finding raised when the ASK returns ``false``.
+            Engine errors are always reported at error severity regardless of
+            this value — a query that could not run is a different problem from
+            a query whose answer was ``false``.
+        description: Short label identifying this assertion in findings. Falls
+            back to ``SPARQL ASK #<n>`` when empty, so ordering matters to the
+            reader if descriptions are omitted.
+        error_message_template: Message shown when the ASK returns ``false``.
+            Defaults to a generic "assertion returned false" line.
+        success_message: Optional message emitted when the ASK returns ``true``.
+            Empty means silence on success, which is the usual choice — this
+            exists for assertions where confirming the check ran is itself
+            valuable evidence.
+        assertion_id: Database identifier carried through into finding metadata
+            so a finding can be traced back to the row that produced it.
+            ``None`` for assertions not persisted in Django.
+    """
 
     target_graph: str
     query: str

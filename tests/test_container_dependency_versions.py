@@ -30,6 +30,7 @@ BACKEND_OPTIONAL_GROUPS = {
     "shacl": ("rdflib", "pyshacl", "owlrl", "defusedxml", "lxml"),
     "schematron": ("saxonche", "defusedxml"),
     "portfolio_manager": ("defusedxml", "openpyxl", "xlrd"),
+    "pdf": ("pikepdf",),
 }
 
 

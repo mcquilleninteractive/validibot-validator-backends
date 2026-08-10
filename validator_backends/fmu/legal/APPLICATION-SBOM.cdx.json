@@ -30,7 +30,7 @@
       "version": "2026.7.22"
     },
     {
-      "bom-ref": "cffi-6@2.1.0",
+      "bom-ref": "cffi-6@2.1.1",
       "name": "cffi",
       "properties": [
         {
@@ -38,9 +38,9 @@
           "value": "platform_python_implementation != 'PyPy'"
         }
       ],
-      "purl": "pkg:pypi/cffi@2.1.0",
+      "purl": "pkg:pypi/cffi@2.1.1",
       "type": "library",
-      "version": "2.1.0"
+      "version": "2.1.1"
     },
     {
       "bom-ref": "charset-normalizer-7@3.4.9",
@@ -50,11 +50,11 @@
       "version": "3.4.9"
     },
     {
-      "bom-ref": "cmake-8@4.4.0",
+      "bom-ref": "cmake-8@4.4.2",
       "name": "cmake",
-      "purl": "pkg:pypi/cmake@4.4.0",
+      "purl": "pkg:pypi/cmake@4.4.2",
       "type": "library",
-      "version": "4.4.0"
+      "version": "4.4.2"
     },
     {
       "bom-ref": "cryptography-9@50.0.0",
@@ -85,32 +85,32 @@
       "version": "0.3.30"
     },
     {
-      "bom-ref": "google-api-core-13@2.33.0",
+      "bom-ref": "google-api-core-13@2.34.0",
       "name": "google-api-core",
-      "purl": "pkg:pypi/google-api-core@2.33.0",
+      "purl": "pkg:pypi/google-api-core@2.34.0",
       "type": "library",
-      "version": "2.33.0"
+      "version": "2.34.0"
     },
     {
-      "bom-ref": "google-auth-14@2.56.2",
+      "bom-ref": "google-auth-14@2.56.3",
       "name": "google-auth",
-      "purl": "pkg:pypi/google-auth@2.56.2",
+      "purl": "pkg:pypi/google-auth@2.56.3",
       "type": "library",
-      "version": "2.56.2"
+      "version": "2.56.3"
     },
     {
-      "bom-ref": "google-cloud-core-15@2.6.0",
+      "bom-ref": "google-cloud-core-15@2.6.1",
       "name": "google-cloud-core",
-      "purl": "pkg:pypi/google-cloud-core@2.6.0",
+      "purl": "pkg:pypi/google-cloud-core@2.6.1",
       "type": "library",
-      "version": "2.6.0"
+      "version": "2.6.1"
     },
     {
-      "bom-ref": "google-cloud-storage-16@3.13.0",
+      "bom-ref": "google-cloud-storage-16@3.13.1",
       "name": "google-cloud-storage",
-      "purl": "pkg:pypi/google-cloud-storage@3.13.0",
+      "purl": "pkg:pypi/google-cloud-storage@3.13.1",
       "type": "library",
-      "version": "3.13.0"
+      "version": "3.13.1"
     },
     {
       "bom-ref": "google-crc32c-17@1.8.0",
@@ -120,18 +120,18 @@
       "version": "1.8.0"
     },
     {
-      "bom-ref": "google-resumable-media-18@2.10.0",
+      "bom-ref": "google-resumable-media-18@2.10.1",
       "name": "google-resumable-media",
-      "purl": "pkg:pypi/google-resumable-media@2.10.0",
+      "purl": "pkg:pypi/google-resumable-media@2.10.1",
       "type": "library",
-      "version": "2.10.0"
+      "version": "2.10.1"
     },
     {
-      "bom-ref": "googleapis-common-protos-19@1.75.0",
+      "bom-ref": "googleapis-common-protos-19@1.75.1",
       "name": "googleapis-common-protos",
-      "purl": "pkg:pypi/googleapis-common-protos@1.75.0",
+      "purl": "pkg:pypi/googleapis-common-protos@1.75.1",
       "type": "library",
-      "version": "1.75.0"
+      "version": "1.75.1"
     },
     {
       "bom-ref": "h11-20@0.16.0",
@@ -218,11 +218,11 @@
       "version": "1.2.1"
     },
     {
-      "bom-ref": "nbformat-32@5.10.4",
+      "bom-ref": "nbformat-32@5.11.0",
       "name": "nbformat",
-      "purl": "pkg:pypi/nbformat@5.10.4",
+      "purl": "pkg:pypi/nbformat@5.11.0",
       "type": "library",
-      "version": "5.10.4"
+      "version": "5.11.0"
     },
     {
       "bom-ref": "numpy-33@2.5.1",
@@ -239,11 +239,11 @@
       "version": "4.11.0"
     },
     {
-      "bom-ref": "proto-plus-35@1.28.2",
+      "bom-ref": "proto-plus-35@1.28.3",
       "name": "proto-plus",
-      "purl": "pkg:pypi/proto-plus@1.28.2",
+      "purl": "pkg:pypi/proto-plus@1.28.3",
       "type": "library",
-      "version": "1.28.2"
+      "version": "1.28.3"
     },
     {
       "bom-ref": "protobuf-36@7.35.1",
@@ -322,11 +322,11 @@
       "version": "2.66.1"
     },
     {
-      "bom-ref": "traitlets-46@5.16.0",
+      "bom-ref": "traitlets-46@5.16.1",
       "name": "traitlets",
-      "purl": "pkg:pypi/traitlets@5.16.0",
+      "purl": "pkg:pypi/traitlets@5.16.1",
       "type": "library",
-      "version": "5.16.0"
+      "version": "5.16.1"
     },
     {
       "bom-ref": "typing-extensions-47@4.16.0",
@@ -350,11 +350,11 @@
       "version": "2.7.0"
     },
     {
-      "bom-ref": "validibot-shared-50@0.24.0",
+      "bom-ref": "validibot-shared-50@0.26.0",
       "name": "validibot-shared",
-      "purl": "pkg:pypi/validibot-shared@0.24.0",
+      "purl": "pkg:pypi/validibot-shared@0.26.0",
       "type": "library",
-      "version": "0.24.0"
+      "version": "0.26.0"
     }
   ],
   "dependencies": [
@@ -377,17 +377,17 @@
       "dependsOn": [
         "pycparser-39@3.0"
       ],
-      "ref": "cffi-6@2.1.0"
+      "ref": "cffi-6@2.1.1"
     },
     {
       "ref": "charset-normalizer-7@3.4.9"
     },
     {
-      "ref": "cmake-8@4.4.0"
+      "ref": "cmake-8@4.4.2"
     },
     {
       "dependsOn": [
-        "cffi-6@2.1.0"
+        "cffi-6@2.1.1"
       ],
       "ref": "cryptography-9@50.0.0"
     },
@@ -400,50 +400,50 @@
     {
       "dependsOn": [
         "attrs-4@26.1.0",
-        "cmake-8@4.4.0",
+        "cmake-8@4.4.2",
         "jinja2-24@3.1.6",
         "lark-28@1.3.1",
         "lxml-29@6.1.1",
         "msgpack-31@1.2.1",
-        "nbformat-32@5.10.4",
+        "nbformat-32@5.11.0",
         "numpy-33@2.5.1"
       ],
       "ref": "fmpy-12@0.3.30"
     },
     {
       "dependsOn": [
-        "google-auth-14@2.56.2",
-        "googleapis-common-protos-19@1.75.0",
-        "proto-plus-35@1.28.2",
+        "google-auth-14@2.56.3",
+        "googleapis-common-protos-19@1.75.1",
+        "proto-plus-35@1.28.3",
         "protobuf-36@7.35.1",
         "requests-43@2.34.2"
       ],
-      "ref": "google-api-core-13@2.33.0"
+      "ref": "google-api-core-13@2.34.0"
     },
     {
       "dependsOn": [
         "cryptography-9@50.0.0",
         "pyasn1-modules-38@0.4.2"
       ],
-      "ref": "google-auth-14@2.56.2"
+      "ref": "google-auth-14@2.56.3"
     },
     {
       "dependsOn": [
-        "google-api-core-13@2.33.0",
-        "google-auth-14@2.56.2"
+        "google-api-core-13@2.34.0",
+        "google-auth-14@2.56.3"
       ],
-      "ref": "google-cloud-core-15@2.6.0"
+      "ref": "google-cloud-core-15@2.6.1"
     },
     {
       "dependsOn": [
-        "google-api-core-13@2.33.0",
-        "google-auth-14@2.56.2",
-        "google-cloud-core-15@2.6.0",
+        "google-api-core-13@2.34.0",
+        "google-auth-14@2.56.3",
+        "google-cloud-core-15@2.6.1",
         "google-crc32c-17@1.8.0",
-        "google-resumable-media-18@2.10.0",
+        "google-resumable-media-18@2.10.1",
         "requests-43@2.34.2"
       ],
-      "ref": "google-cloud-storage-16@3.13.0"
+      "ref": "google-cloud-storage-16@3.13.1"
     },
     {
       "ref": "google-crc32c-17@1.8.0"
@@ -452,13 +452,13 @@
       "dependsOn": [
         "google-crc32c-17@1.8.0"
       ],
-      "ref": "google-resumable-media-18@2.10.0"
+      "ref": "google-resumable-media-18@2.10.1"
     },
     {
       "dependsOn": [
         "protobuf-36@7.35.1"
       ],
-      "ref": "googleapis-common-protos-19@1.75.0"
+      "ref": "googleapis-common-protos-19@1.75.1"
     },
     {
       "ref": "h11-20@0.16.0"
@@ -506,7 +506,7 @@
     {
       "dependsOn": [
         "platformdirs-34@4.11.0",
-        "traitlets-46@5.16.0"
+        "traitlets-46@5.16.1"
       ],
       "ref": "jupyter-core-27@5.9.1"
     },
@@ -527,9 +527,9 @@
         "fastjsonschema-11@2.22.1",
         "jsonschema-25@4.26.0",
         "jupyter-core-27@5.9.1",
-        "traitlets-46@5.16.0"
+        "traitlets-46@5.16.1"
       ],
-      "ref": "nbformat-32@5.10.4"
+      "ref": "nbformat-32@5.11.0"
     },
     {
       "ref": "numpy-33@2.5.1"
@@ -541,7 +541,7 @@
       "dependsOn": [
         "protobuf-36@7.35.1"
       ],
-      "ref": "proto-plus-35@1.28.2"
+      "ref": "proto-plus-35@1.28.3"
     },
     {
       "ref": "protobuf-36@7.35.1"
@@ -600,7 +600,7 @@
       "ref": "sentry-sdk-45@2.66.1"
     },
     {
-      "ref": "traitlets-46@5.16.0"
+      "ref": "traitlets-46@5.16.1"
     },
     {
       "ref": "typing-extensions-47@4.16.0"
@@ -619,12 +619,12 @@
         "defusedxml-10@0.7.1",
         "pydantic-40@2.13.4"
       ],
-      "ref": "validibot-shared-50@0.24.0"
+      "ref": "validibot-shared-50@0.26.0"
     }
   ],
   "metadata": {
     "component": {
-      "bom-ref": "validibot-validator-backend-fmu@0.15.5",
+      "bom-ref": "validibot-validator-backend-fmu@0.15.6",
       "name": "validibot-validator-backend-fmu",
       "properties": [
         {
@@ -633,11 +633,11 @@
         },
         {
           "name": "io.validibot.shared-contract.version",
-          "value": "0.24.0"
+          "value": "0.26.0"
         }
       ],
       "type": "application",
-      "version": "0.15.5"
+      "version": "0.15.6"
     },
     "tools": [
       {
@@ -647,7 +647,7 @@
       }
     ]
   },
-  "serialNumber": "urn:uuid:168138fd-8b0e-512e-96ac-91b4960c6c09",
+  "serialNumber": "urn:uuid:c494bc10-5f4b-509d-8ba7-c74badfc5bcb",
   "specVersion": "1.5",
   "version": 1
 }

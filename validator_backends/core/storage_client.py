@@ -34,7 +34,18 @@ from validator_backends.core.gcs_capability import (
 
 
 class _IntegrityBoundFile(Protocol):
-    """Structural subset shared by input and resource file envelope items."""
+    """Structural subset shared by input and resource file envelope items.
+
+    Input files and resource files are separate classes in ``validibot-shared``
+    with different envelope semantics, but the four fields needed to fetch bytes
+    safely are identical. A ``Protocol`` lets the download path accept either
+    without importing both or forcing a shared base class into the shared
+    package — the coupling stays at "has these four attributes".
+
+    Every field is required. A file described without its digest or version
+    cannot be verified, and this module has no path that downloads unverified
+    bytes.
+    """
 
     uri: str
     size_bytes: int
@@ -43,7 +54,17 @@ class _IntegrityBoundFile(Protocol):
 
 
 class _UploadedFileManifestItem(TypedDict):
-    """One integrity-bound output entry in a directory manifest."""
+    """One integrity-bound output entry in a directory manifest.
+
+    When a validator emits a whole directory, the manifest is what makes the
+    result verifiable: without it, Django would know a prefix was written but not
+    which objects belong to the run or whether any were missing. Each entry
+    carries the same integrity fields as :class:`StoredFile` plus the member's
+    name relative to the uploaded directory.
+
+    A ``TypedDict`` rather than a dataclass because these are serialised straight
+    into ``manifest.json`` — the dict *is* the wire format.
+    """
 
     name: str
     uri: str
@@ -69,7 +90,33 @@ class StorageConflictError(RuntimeError):
 
 @dataclass(frozen=True, slots=True)
 class VerifiedFile:
-    """A local file committed only after its full contract was verified."""
+    """A local input file, committed only after its full contract was verified.
+
+    Returned by :func:`download_verified_file`. Its existence is the proof: a
+    ``VerifiedFile`` is only constructed once the downloaded bytes matched the
+    declared size, SHA-256, and storage version exactly. Code holding one does
+    not need to re-check anything, which is why verification is a constructor
+    precondition rather than a method someone might forget to call.
+
+    Verification happens *during* the stream, not after. The declared size acts
+    as a hard ceiling on bytes accepted, so an object that grew since Django
+    described it is rejected mid-download rather than after it has filled the
+    container's disk.
+
+    Fields:
+        path: Where the verified bytes now live locally. Committed create-only —
+            an existing destination is treated as a conflict even when it already
+            holds the expected bytes, because reuse would mean trusting something
+            this attempt did not verify itself.
+        uri: The source URI the bytes came from.
+        size_bytes: Observed size, equal by construction to the declared size.
+        sha256: Observed digest, equal by construction to the declared digest.
+        storage_version: The immutable version that was pinned during the read.
+            For ``gs://`` this is the GCS object generation, so the read is bound
+            to exact bytes even if the object is later overwritten. For
+            ``file://`` it is ``sha256:<digest>``, since a local filesystem has no
+            generation concept.
+    """
 
     path: Path
     uri: str
@@ -80,7 +127,29 @@ class VerifiedFile:
 
 @dataclass(frozen=True, slots=True)
 class StoredFile:
-    """Integrity and immutable-version metadata for one uploaded output file."""
+    """Integrity and immutable-version metadata for one uploaded output file.
+
+    The output-side counterpart to :class:`VerifiedFile`. The two hold nearly the
+    same fields for opposite reasons, and the difference is worth keeping
+    straight: a ``VerifiedFile`` records what this container *checked* about
+    bytes it received, while a ``StoredFile`` records what it *produced* so that
+    Django can check them in turn. Hence no ``path`` — by the time one exists the
+    bytes are in remote storage, and the local copy is no longer the artifact of
+    record.
+
+    These values travel back in the output envelope and become the evidence
+    Django stores against the run. Uploads are create-only, so a conflicting
+    destination raises :class:`StorageConflictError` rather than overwriting
+    something a previous attempt already published.
+
+    Fields:
+        uri: Where the file was written.
+        size_bytes: Size computed locally before upload.
+        sha256: Digest computed locally before upload.
+        storage_version: GCS generation of the created object, or
+            ``sha256:<digest>`` for local storage. Django uses this to re-open the
+            exact bytes this attempt wrote.
+    """
 
     uri: str
     size_bytes: int

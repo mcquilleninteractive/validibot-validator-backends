@@ -1,8 +1,16 @@
 """Bounded, non-rendering PDF package inventory and extraction engine.
 
-The engine uses qpdf through pikepdf with recovery disabled. It inspects
-standard file-specification mechanisms, document XMP, and selected active
-features. Embedded names are evidence only and are never used as paths.
+The engine uses qpdf through pikepdf with recovery disabled. It walks the
+reachable object graph with explicit depth and reference budgets, inventories
+standard file-specification and interactive mechanisms, and extracts only
+bounded member streams. It never renders pages, runs an action or script,
+follows a URI, rewrites the source PDF, or uses an embedded name as a path.
+
+PDF streams can expand while qpdf decodes their filter chains. The container's
+memory limit remains the final native-code boundary; this module adds earlier
+structural, encoded-byte, decoded-byte, filter-count, and expansion-ratio
+guards so ordinary hostile inputs fail as domain results well before that
+boundary wherever qpdf can expose the necessary facts.
 """
 
 from __future__ import annotations
@@ -40,11 +48,95 @@ from validibot_shared.validations.envelopes import (
 
 PDF_ENGINE_NAME = "qpdf/pikepdf"
 PDF_HARD_MAX_INPUT_BYTES = 250_000_000
+PDF_MAX_STREAM_FILTERS = 64
+PDF_MAX_DECODE_RATIO = 200
+PDF_DECODE_RATIO_MIN_BYTES = 4_096
+PDF_MAX_NAME_TREE_DEPTH = 64
+PDF_MAX_DISCOVERY_PATH_CHARS = 2_000
+
+
+@dataclass(slots=True)
+class _InspectionBudget:
+    """Mutable counters for work that is not represented by unique members."""
+
+    member_references: int = 0
+    total_decoded_bytes: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class _GraphDictionary:
+    """One reachable dictionary and its bounded diagnostic path."""
+
+    value: Any
+    location: str
 
 
 @dataclass(slots=True)
 class _MemberRecord:
-    """Mutable internal record merged by extracted-byte SHA-256."""
+    """Mutable internal record merged by extracted-byte SHA-256.
+
+    One record per *distinct payload*, not per place a payload was found. A PDF
+    can reach the same embedded bytes through several unrelated structures at
+    once — the ``/EmbeddedFiles`` name tree, a bare file specification, a PDF/A-3
+    ``/AF`` associated-files array, a page's file-attachment annotation — and
+    naively treating those as four attachments would both mislead the author and
+    inflate the output. Keying on the SHA-256 of the *extracted* bytes collapses
+    them into one member.
+
+    That merge is why nearly every field below is a ``set``. The payload is
+    singular but the evidence about it is plural, and all of it is kept: how many
+    ways a file was reachable, and whether those routes agreed with each other,
+    is itself signal. Sets are sorted into stable lists when the output envelope
+    is assembled.
+
+    **Declared versus detected is the central distinction.** The PDF's own claims
+    about a payload are untrusted input, so they are recorded (plural,
+    ``declared_media_types``) alongside what sniffing actually found (singular,
+    ``detected_media_type``). Disagreement raises the ``declared_type_mismatch``
+    risk flag rather than being resolved in favour of either side. A single
+    payload declared as two different types across two discovery sites is
+    preserved as exactly that.
+
+    Fields:
+        data: The extracted bytes. Held in memory because members are small by
+            policy and may be re-emitted as output artifacts.
+        sha256: Digest of ``data``; the merge key for this record.
+        discovery_kinds: How the payload was reached — ``embedded_files_name_tree``,
+            ``file_specification``, ``associated_file``,
+            ``file_attachment_annotation``. Multiple entries mean multiple routes.
+        discovery_locations: Structural paths to each discovery site, for example
+            ``…/AF[0]``, so a finding can point at where in the document a member
+            actually lives.
+        object_references: Underlying PDF object references, letting two
+            discovery sites that share one object be told apart from two that
+            merely share content.
+        original_names: Every filename the document declared for these bytes.
+            Retained only as quoted data and never used to build a path — see
+            ``_filename_risks``, which flags traversal characters, drive-letter
+            prefixes, control characters, and bidirectional-override characters
+            that could disguise an extension in a UI.
+        descriptions: Author-supplied descriptions, joined on output.
+        declared_media_types: What the PDF claims these bytes are (see above).
+        af_relationships: PDF/A-3 ``AFRelationship`` values — ``Source``,
+            ``Data``, ``Alternative``, ``Supplement`` and similar. These say what
+            role an attachment plays, and are what a workflow author selects on
+            when picking, say, the ZUGFeRD invoice XML out of a PDF.
+        rich_media_asset_names: Asset names when the payload came in through a
+            rich-media annotation.
+        encoded_size_bytes: The stream's declared ``/Length`` — the size *before*
+            decompression, and a document's claim rather than an observation.
+            Compare against ``len(data)`` to reason about compression ratio.
+        detected_media_type: The single sniffed type (see above).
+        xml_root_qname: Root element qualified name when the payload parses as
+            XML. This is what identifies an attachment as a particular business
+            document without trusting its filename or declared type.
+        risk_flags: Accumulated hazards — filename risks above, plus
+            ``declared_type_mismatch`` and ``executable_content``. Flags are
+            reported; they do not by themselves suppress the member.
+        selected_output_key: Set when a member matches an author's selector and
+            is therefore promoted to a named output. Empty for members that were
+            merely catalogued.
+    """
 
     data: bytes
     sha256: str
@@ -65,7 +157,22 @@ class _MemberRecord:
 
 @dataclass(frozen=True, slots=True)
 class PdfEngineResult:
-    """Complete domain result plus exact artifact bytes for the entrypoint."""
+    """Complete domain result plus exact artifact bytes for the entrypoint.
+
+    Unlike the other backends' result tuples, this one carries payload bytes.
+    The engine decides *which* embedded members become outputs but does not
+    upload them, leaving the entrypoint to own all storage I/O — so the engine
+    stays testable without a storage backend, and every upload goes through one
+    audited path.
+
+    Fields:
+        status: Overall validation status for the run.
+        messages: Findings surfaced to the author.
+        outputs: The typed PDF output envelope, including member metadata.
+        artifact_payloads: Output key to exact bytes, for members the author's
+            selectors promoted to artifacts. Keys match the
+            ``selected_output_key`` values recorded on the corresponding members.
+    """
 
     status: ValidationStatus
     messages: list[ValidationMessage]
@@ -89,7 +196,9 @@ def inspect_pdf(
     )
     findings: list[ValidationMessage] = []
     records: dict[str, _MemberRecord] = {}
+    budget = _InspectionBudget()
     xmp_bytes = b""
+    bundle_bytes = b""
     header_version = _header_version(source_bytes)
 
     if len(source_bytes) > inputs.limits.max_input_bytes:
@@ -152,6 +261,11 @@ def inspect_pdf(
 
             root = pdf.Root
             xmp_bytes = _document_xmp(root, inputs=inputs, findings=findings)
+            graph = _walk_reachable_dictionaries(
+                root,
+                max_depth=inputs.limits.max_object_depth,
+                findings=findings,
+            )
             extensions = _inventory_extensions(root)
             requirements = _inventory_requirements(root)
             interactive = _interactive_features(pdf, root)
@@ -160,34 +274,37 @@ def inspect_pdf(
             _discover_name_tree_attachments(
                 pdf,
                 records=records,
+                budget=budget,
                 inputs=inputs,
                 findings=findings,
             )
             _discover_file_spec_objects(
                 pdf,
                 records=records,
+                budget=budget,
                 inputs=inputs,
                 findings=findings,
             )
-            _discover_associated_files(
-                root,
-                location="catalog",
+            _discover_graph_associated_files(
+                graph,
                 records=records,
+                budget=budget,
+                inputs=inputs,
+                findings=findings,
+            )
+            _discover_rich_media_assets(
+                graph,
+                records=records,
+                budget=budget,
                 inputs=inputs,
                 findings=findings,
             )
             for page_number, page in enumerate(pdf.pages, start=1):
-                _discover_associated_files(
-                    page.obj,
-                    location=f"page:{page_number}",
-                    records=records,
-                    inputs=inputs,
-                    findings=findings,
-                )
                 _discover_page_annotations(
                     page.obj,
                     page_number=page_number,
                     records=records,
+                    budget=budget,
                     inputs=inputs,
                     findings=findings,
                 )
@@ -201,6 +318,31 @@ def inspect_pdf(
                 inputs=inputs,
                 findings=findings,
             )
+            if inputs.emit_extracted_files_bundle and records:
+                candidate_bundle = _build_bundle(records)
+                if len(candidate_bundle) > inputs.limits.max_total_member_bytes:
+                    findings.append(
+                        _message(
+                            Severity.ERROR,
+                            "pdf.limit.output_bundle_bytes",
+                            "The deterministic extraction bundle exceeds the "
+                            "configured total-member output budget.",
+                        )
+                    )
+                else:
+                    bundle_bytes = candidate_bundle
+            metadata = _xmp_inventory(xmp_bytes)
+            metadata["object_metadata"] = _inventory_object_metadata(
+                graph,
+                document_xmp_sha256=metadata.get("sha256", ""),
+                inputs=inputs,
+                findings=findings,
+            )
+            metadata["incremental_revision_markers"] = max(
+                0,
+                source_bytes.count(b"startxref") - 1,
+            )
+            _enforce_finding_limit(findings, inputs.limits.max_findings)
             members = _public_members(records)
             finding_summary = _finding_summary(findings)
             passed = finding_summary.get("ERROR", 0) == 0
@@ -225,8 +367,8 @@ def inspect_pdf(
                 ),
                 extensions=extensions,
                 requirements=requirements,
-                declarations=[],
-                metadata=_xmp_inventory(xmp_bytes),
+                declarations=_inventory_declarations(xmp_bytes),
+                metadata=metadata,
                 interactive_features=interactive,
                 signatures=signatures,
                 members=members,
@@ -256,6 +398,7 @@ def inspect_pdf(
         )
         selected = {}
         xmp_bytes = b""
+        bundle_bytes = b""
     except pikepdf.PdfError:
         findings.append(
             _message(
@@ -273,6 +416,7 @@ def inspect_pdf(
         )
         selected = {}
         xmp_bytes = b""
+        bundle_bytes = b""
 
     inventory_bytes = (
         inventory.model_dump_json(indent=2, exclude_none=True).encode("utf-8") + b"\n"
@@ -294,6 +438,7 @@ def inspect_pdf(
         )
         selected = {}
         xmp_bytes = b""
+        bundle_bytes = b""
         records = {}
         inventory_bytes = (
             inventory.model_dump_json(indent=2, exclude_none=True).encode("utf-8") + b"\n"
@@ -301,8 +446,8 @@ def inspect_pdf(
     artifact_payloads = {"pdf_inventory": inventory_bytes, **selected}
     if xmp_bytes:
         artifact_payloads["xmp_metadata"] = xmp_bytes
-    if inputs.emit_extracted_files_bundle and records:
-        artifact_payloads["extracted_files_bundle"] = _build_bundle(records)
+    if bundle_bytes:
+        artifact_payloads["extracted_files_bundle"] = bundle_bytes
 
     finding_summary = _finding_summary(findings)
     passed = finding_summary.get("ERROR", 0) == 0
@@ -363,7 +508,164 @@ def _document_xmp(root, *, inputs: PdfInputs, findings) -> bytes:
     return data
 
 
-def _discover_name_tree_attachments(pdf, *, records, inputs, findings) -> None:
+def _walk_reachable_dictionaries(
+    root,
+    *,
+    max_depth: int,
+    findings: list[ValidationMessage],
+) -> list[_GraphDictionary]:
+    """Walk dictionaries and arrays iteratively with cycle and depth guards."""
+    discovered: list[_GraphDictionary] = []
+    seen: set[tuple[Any, ...]] = set()
+    # Direct pikepdf objects have no object number, so their fallback identity
+    # is the Python wrapper id. Keep every traversed container alive for the
+    # whole walk: otherwise a discarded direct-array wrapper can be collected
+    # and its id reused by an unrelated later object, making discovery depend
+    # on allocator timing.
+    retained_containers: list[Any] = []
+    stack: list[tuple[Any, str, int]] = [(root, "catalog", 0)]
+    depth_exhausted = False
+
+    while stack:
+        value, location, depth = stack.pop()
+        if not isinstance(value, (pikepdf.Dictionary, pikepdf.Array, pikepdf.Stream)):
+            continue
+        retained_containers.append(value)
+        identity = _graph_object_identity(value)
+        if identity in seen:
+            continue
+        seen.add(identity)
+        if depth > max_depth:
+            depth_exhausted = True
+            continue
+        if isinstance(value, (pikepdf.Dictionary, pikepdf.Stream)):
+            discovered.append(
+                _GraphDictionary(
+                    value=value,
+                    location=_bounded_text(location, PDF_MAX_DISCOVERY_PATH_CHARS),
+                )
+            )
+            children = [
+                (
+                    child,
+                    f"{location}/{_pdf_name(key)}",
+                    depth + 1,
+                )
+                for key, child in value.items()
+            ]
+        else:
+            children = [
+                (child, f"{location}[{position}]", depth + 1)
+                for position, child in enumerate(value)
+            ]
+        stack.extend(reversed(children))
+
+    if depth_exhausted:
+        findings.append(
+            _message(
+                Severity.ERROR,
+                "pdf.limit.object_depth",
+                "The reachable PDF object graph exceeds the configured depth limit.",
+            )
+        )
+    return discovered
+
+
+def _graph_object_identity(value) -> tuple[Any, ...]:
+    """Return a stable indirect identity or a process-local direct identity."""
+    try:
+        object_number, generation = value.objgen
+    except (AttributeError, ValueError):
+        object_number = generation = 0
+    if object_number:
+        return ("indirect", int(object_number), int(generation))
+    return ("direct", id(value))
+
+
+def _discover_graph_associated_files(
+    graph: list[_GraphDictionary],
+    *,
+    records,
+    budget,
+    inputs,
+    findings,
+) -> None:
+    """Discover `/AF` arrays on every reachable dictionary, including structure."""
+    for item in graph:
+        _discover_associated_files(
+            item.value,
+            location=item.location,
+            records=records,
+            budget=budget,
+            inputs=inputs,
+            findings=findings,
+        )
+
+
+def _discover_rich_media_assets(
+    graph: list[_GraphDictionary],
+    *,
+    records,
+    budget,
+    inputs,
+    findings,
+) -> None:
+    """Discover RichMedia asset name trees without activating configurations."""
+    for item in graph:
+        annotation = item.value
+        if _pdf_name(annotation.get("/Subtype")) != "RichMedia":
+            continue
+        content = annotation.get("/RichMediaContent")
+        if not isinstance(content, pikepdf.Dictionary):
+            continue
+        assets = content.get("/Assets")
+        if not isinstance(assets, pikepdf.Dictionary):
+            continue
+        for asset_name, file_spec in _name_tree_pairs(assets):
+            if not isinstance(file_spec, pikepdf.Dictionary):
+                continue
+            _add_file_spec(
+                file_spec,
+                original_name=_file_spec_name(file_spec),
+                discovery_kind="rich_media_asset",
+                location=f"{item.location}/RichMediaContent/Assets",
+                records=records,
+                budget=budget,
+                inputs=inputs,
+                findings=findings,
+                rich_media_asset_name=asset_name,
+            )
+
+
+def _name_tree_pairs(tree) -> list[tuple[str, Any]]:
+    """Return bounded RichMedia name-tree pairs without relying on traversal order."""
+    result: list[tuple[str, Any]] = []
+    seen: set[tuple[Any, ...]] = set()
+    retained_nodes: list[Any] = []
+    stack: list[tuple[Any, int]] = [(tree, 0)]
+    while stack:
+        node, depth = stack.pop()
+        if not isinstance(node, pikepdf.Dictionary) or depth > PDF_MAX_NAME_TREE_DEPTH:
+            continue
+        retained_nodes.append(node)
+        identity = _graph_object_identity(node)
+        if identity in seen:
+            continue
+        seen.add(identity)
+        names = node.get("/Names")
+        if isinstance(names, pikepdf.Array):
+            pair_count = len(names) // 2
+            for pair_index in range(pair_count):
+                name = _pdf_text(names[pair_index * 2])
+                value = names[pair_index * 2 + 1]
+                result.append((name, value))
+        kids = node.get("/Kids")
+        if isinstance(kids, pikepdf.Array):
+            stack.extend((kid, depth + 1) for kid in reversed(kids))
+    return sorted(result, key=lambda pair: pair[0])
+
+
+def _discover_name_tree_attachments(pdf, *, records, budget, inputs, findings) -> None:
     """Discover the catalog EmbeddedFiles name tree through pikepdf's API."""
     for logical_name in sorted(pdf.attachments):
         spec = pdf.attachments[logical_name]
@@ -373,12 +675,13 @@ def _discover_name_tree_attachments(pdf, *, records, inputs, findings) -> None:
             discovery_kind="embedded_files_name_tree",
             location="catalog/Names/EmbeddedFiles",
             records=records,
+            budget=budget,
             inputs=inputs,
             findings=findings,
         )
 
 
-def _discover_file_spec_objects(pdf, *, records, inputs, findings) -> None:
+def _discover_file_spec_objects(pdf, *, records, budget, inputs, findings) -> None:
     """Find indirect file specifications not reachable from the name tree."""
     for obj in pdf.objects:
         if not isinstance(obj, pikepdf.Dictionary):
@@ -391,6 +694,7 @@ def _discover_file_spec_objects(pdf, *, records, inputs, findings) -> None:
             discovery_kind="file_specification",
             location=f"object:{_object_reference(obj)}",
             records=records,
+            budget=budget,
             inputs=inputs,
             findings=findings,
         )
@@ -401,11 +705,12 @@ def _discover_associated_files(
     *,
     location,
     records,
+    budget,
     inputs,
     findings,
 ) -> None:
     """Discover a direct `/AF` array on a catalog, page, or annotation."""
-    if not isinstance(container, pikepdf.Dictionary):
+    if not isinstance(container, (pikepdf.Dictionary, pikepdf.Stream)):
         return
     associated = container.get("/AF")
     if not isinstance(associated, pikepdf.Array):
@@ -419,6 +724,7 @@ def _discover_associated_files(
             discovery_kind="associated_file",
             location=f"{location}/AF[{position}]",
             records=records,
+            budget=budget,
             inputs=inputs,
             findings=findings,
         )
@@ -429,6 +735,7 @@ def _discover_page_annotations(
     *,
     page_number,
     records,
+    budget,
     inputs,
     findings,
 ) -> None:
@@ -444,6 +751,7 @@ def _discover_page_annotations(
             annotation,
             location=location,
             records=records,
+            budget=budget,
             inputs=inputs,
             findings=findings,
         )
@@ -459,6 +767,7 @@ def _discover_page_annotations(
                 discovery_kind="file_attachment_annotation",
                 location=location,
                 records=records,
+                budget=budget,
                 inputs=inputs,
                 findings=findings,
             )
@@ -471,11 +780,14 @@ def _add_file_spec(
     discovery_kind,
     location,
     records,
+    budget,
     inputs,
     findings,
+    rich_media_asset_name="",
 ) -> None:
     """Extract one file specification under byte budgets and merge by SHA-256."""
-    if len(records) >= inputs.limits.max_member_references:
+    budget.member_references += 1
+    if budget.member_references > inputs.limits.max_member_references:
         if not any(message.code == "pdf.limit.member_references" for message in findings):
             findings.append(
                 _message(
@@ -491,6 +803,17 @@ def _add_file_spec(
     stream = embedded.get("/UF") or embedded.get("/F")
     if stream is None or not hasattr(stream, "read_bytes"):
         return
+    filter_count = _stream_filter_count(stream)
+    if filter_count > PDF_MAX_STREAM_FILTERS:
+        findings.append(
+            _message(
+                Severity.ERROR,
+                "pdf.limit.stream_filters",
+                "An embedded member declares an excessive stream-filter chain.",
+            )
+        )
+        return
+    encoded_size = len(stream.read_raw_bytes())
     data = stream.read_bytes()
     if len(data) > inputs.limits.max_member_bytes:
         findings.append(
@@ -501,11 +824,21 @@ def _add_file_spec(
             )
         )
         return
-    total_existing = sum(len(record.data) for record in records.values())
-    digest = hashlib.sha256(data).hexdigest()
-    if digest not in records and total_existing + len(data) > (
-        inputs.limits.max_total_member_bytes
+    if (
+        len(data) >= PDF_DECODE_RATIO_MIN_BYTES
+        and len(data) > max(1, encoded_size) * PDF_MAX_DECODE_RATIO
     ):
+        findings.append(
+            _message(
+                Severity.ERROR,
+                "pdf.limit.decode_ratio",
+                "An embedded member exceeds the decoded-to-encoded ratio limit.",
+            )
+        )
+        return
+    budget.total_decoded_bytes += len(data)
+    digest = hashlib.sha256(data).hexdigest()
+    if budget.total_decoded_bytes > inputs.limits.max_total_member_bytes:
         findings.append(
             _message(
                 Severity.ERROR,
@@ -521,19 +854,22 @@ def _add_file_spec(
     reference = _object_reference(spec)
     if reference:
         record.object_references.add(reference)
-    if original_name:
-        record.original_names.add(str(original_name))
-        record.risk_flags.update(_filename_risks(str(original_name)))
+    if original_name or "/UF" in spec or "/F" in spec:
+        normalized_name = str(original_name)
+        record.original_names.add(normalized_name)
+        record.risk_flags.update(_filename_risks(normalized_name))
     description = _pdf_text(spec.get("/Desc"))
     if description:
         record.descriptions.add(description)
     relationship = _pdf_name(spec.get("/AFRelationship"))
     if relationship:
         record.af_relationships.add(relationship)
+    if rich_media_asset_name:
+        record.rich_media_asset_names.add(str(rich_media_asset_name))
     declared_media_type = _stream_media_type(stream)
     if declared_media_type:
         record.declared_media_types.add(declared_media_type)
-    record.encoded_size_bytes = _safe_int(stream.get("/Length"))
+    record.encoded_size_bytes = encoded_size
     detected, root_qname = _detect_member_type(data)
     record.detected_media_type = detected
     record.xml_root_qname = root_qname
@@ -781,11 +1117,23 @@ def _interactive_features(pdf, root) -> dict[str, Any]:
         counts["open_actions"] += 1
     if root.get("/AA") is not None:
         counts["additional_actions"] += 1
-    if root.get("/AcroForm") is not None:
+    acroform = root.get("/AcroForm")
+    if acroform is not None:
         counts["acroforms"] += 1
+    if isinstance(acroform, pikepdf.Dictionary) and acroform.get("/XFA") is not None:
+        counts["xfa_entries"] += 1
     names = root.get("/Names")
     if isinstance(names, pikepdf.Dictionary) and names.get("/JavaScript") is not None:
         counts["javascript_name_trees"] += 1
+    action_names = {
+        "JavaScript": "javascript_actions",
+        "Launch": "launch_actions",
+        "GoToR": "remote_go_to_actions",
+        "GoToE": "remote_go_to_actions",
+        "SubmitForm": "submit_form_actions",
+        "ImportData": "import_data_actions",
+        "ResetForm": "reset_form_actions",
+    }
     for obj in pdf.objects:
         if not isinstance(obj, pikepdf.Dictionary):
             continue
@@ -793,17 +1141,25 @@ def _interactive_features(pdf, root) -> dict[str, Any]:
         action = _pdf_name(obj.get("/S"))
         if subtype == "RichMedia":
             counts["rich_media_annotations"] += 1
+            settings = obj.get("/RichMediaSettings")
+            if (
+                isinstance(settings, pikepdf.Dictionary)
+                and settings.get("/Activation") is not None
+            ):
+                counts["rich_media_automatic_activation"] += 1
         if subtype == "3D":
             counts["three_d_annotations"] += 1
-        if action == "JavaScript":
-            counts["javascript_actions"] += 1
+            if obj.get("/3DD") is not None:
+                counts["three_d_streams"] += 1
+        if action in action_names:
+            counts[action_names[action]] += 1
         if action == "URI":
             counts["uri_actions"] += 1
             uri = _bounded_text(_pdf_text(obj.get("/URI")), 2_048)
             if uri and len(uri_targets) < 1_000:
                 uri_targets.add(uri)
-        if action in {"Launch", "GoToR", "SubmitForm", "ImportData"}:
-            counts["external_or_mutating_actions"] += 1
+        if _pdf_name(obj.get("/Type")) == "Filespec" and _pdf_name(obj.get("/FS")) in {"URL", "F"}:
+            counts["external_file_specifications"] += 1
     result: dict[str, Any] = dict(sorted(counts.items()))
     if uri_targets:
         result["uri_action_targets"] = sorted(uri_targets)
@@ -844,9 +1200,22 @@ def _apply_safe_static_profile(interactive, *, findings) -> None:
                 "The PDF contains ordinary URI links; targets were inventoried.",
             )
         )
-    for feature, count in interactive.items():
-        if feature in {"uri_actions", "uri_action_targets"}:
-            continue
+    rejected_features = {
+        "open_actions",
+        "additional_actions",
+        "javascript_name_trees",
+        "javascript_actions",
+        "launch_actions",
+        "remote_go_to_actions",
+        "submit_form_actions",
+        "import_data_actions",
+        "reset_form_actions",
+        "external_file_specifications",
+        "xfa_entries",
+        "rich_media_automatic_activation",
+    }
+    for feature in sorted(rejected_features):
+        count = interactive.get(feature, 0)
         if count:
             findings.append(
                 _message(
@@ -864,7 +1233,19 @@ def _apply_package_risk_findings(records, *, findings) -> None:
         "application/x-executable",
         "application/java-archive",
     }
+    digests_by_name: dict[str, set[str]] = {}
     for record in records.values():
+        for name in record.original_names:
+            digests_by_name.setdefault(name, set()).add(record.sha256)
+        if len(record.declared_media_types) > 1:
+            record.risk_flags.add("conflicting_declared_media_types")
+            findings.append(
+                _message(
+                    Severity.WARNING,
+                    "pdf.member.conflicting_declared_types",
+                    "One embedded byte sequence has conflicting declared media types.",
+                )
+            )
         if "declared_type_mismatch" in record.risk_flags:
             findings.append(
                 _message(
@@ -882,6 +1263,18 @@ def _apply_package_risk_findings(records, *, findings) -> None:
                     "An embedded member appears to contain executable content.",
                 )
             )
+    duplicate_names = {name for name, digests in digests_by_name.items() if len(digests) > 1}
+    for record in records.values():
+        if record.original_names & duplicate_names:
+            record.risk_flags.add("duplicate_name")
+    if duplicate_names:
+        findings.append(
+            _message(
+                Severity.WARNING,
+                "pdf.member.duplicate_name",
+                "Different embedded byte sequences share a declared filename.",
+            )
+        )
 
 
 def _failure_inventory(
@@ -1016,18 +1409,131 @@ def _xmp_inventory(data: bytes) -> dict[str, Any]:
     }
 
 
+def _inventory_object_metadata(
+    graph: list[_GraphDictionary],
+    *,
+    document_xmp_sha256: str,
+    inputs: PdfInputs,
+    findings: list[ValidationMessage],
+) -> list[dict[str, Any]]:
+    """Inventory safe object-level metadata packets without exposing XML content."""
+    packets: dict[str, dict[str, Any]] = {}
+    for item in graph:
+        stream = item.value.get("/Metadata")
+        if stream is None or not hasattr(stream, "read_bytes"):
+            continue
+        data = stream.read_bytes()
+        if len(data) > inputs.limits.max_xmp_bytes:
+            findings.append(
+                _message(
+                    Severity.ERROR,
+                    "pdf.limit.object_metadata_bytes",
+                    "An object metadata packet exceeds the configured XMP limit.",
+                )
+            )
+            continue
+        digest = hashlib.sha256(data).hexdigest()
+        if digest == document_xmp_sha256:
+            continue
+        try:
+            root = SafeElementTree.fromstring(data)
+        except Exception:
+            findings.append(
+                _message(
+                    Severity.ERROR,
+                    "pdf.metadata.object_xmp_invalid",
+                    "An object metadata packet is not safe, well-formed XML.",
+                )
+            )
+            continue
+        packet = packets.setdefault(
+            digest,
+            {
+                "sha256": digest,
+                "size_bytes": len(data),
+                "root_qname": str(root.tag),
+                "object_reference": _object_reference(stream),
+                "locations": [],
+            },
+        )
+        packet["locations"].append(item.location)
+    return [
+        {
+            **packet,
+            "locations": sorted(set(packet["locations"])),
+        }
+        for packet in sorted(packets.values(), key=lambda value: value["sha256"])
+    ]
+
+
+def _inventory_declarations(data: bytes) -> list[dict[str, str]]:
+    """Inventory PDF Declaration namespace properties as bounded claims."""
+    if not data:
+        return []
+    root = SafeElementTree.fromstring(data)
+    declarations = []
+    for element in root.iter():
+        qname = str(element.tag)
+        namespace = qname[1:].partition("}")[0] if qname.startswith("{") else ""
+        if "declaration" not in namespace.casefold():
+            continue
+        declarations.append(
+            {
+                "qname": _bounded_text(qname, 1_024),
+                "value": _bounded_text(element.text or "", 2_000).strip(),
+            }
+        )
+    return declarations[:1_000]
+
+
+def _enforce_finding_limit(
+    findings: list[ValidationMessage],
+    max_findings: int,
+) -> None:
+    """Bound authored findings and fail closed when diagnostic output exhausts."""
+    if len(findings) <= max_findings:
+        return
+    del findings[max(0, max_findings - 1) :]
+    findings.append(
+        _message(
+            Severity.ERROR,
+            "pdf.limit.findings",
+            "The PDF exceeds the configured finding-output limit.",
+        )
+    )
+
+
 def _filename_risks(name: str) -> set[str]:
     """Flag dangerous embedded names while retaining them only as quoted data."""
     risks = set()
-    if name in {".", ".."} or "/" in name or "\\" in name:
+    if not name:
+        risks.add("filename_empty")
+    path_segments = re.split(r"[/\\]", name)
+    if name in {".", ".."} or any(segment in {".", ".."} for segment in path_segments):
+        risks.add("filename_dot_segment")
+    if "/" in name or "\\" in name:
         risks.add("filename_path_hazard")
+    if name.startswith(("/", "\\")):
+        risks.add("filename_absolute_path")
     if re.match(r"^[A-Za-z]:", name):
         risks.add("filename_drive_prefix")
     if any(ord(char) < 32 or ord(char) == 127 for char in name):
         risks.add("filename_control_character")
     if any(char in name for char in "\u202a\u202b\u202d\u202e\u2066\u2067\u2068\u2069"):
         risks.add("filename_bidi_control")
+    if any(ord(char) > 127 for char in name):
+        risks.add("filename_unicode")
     return risks
+
+
+def _stream_filter_count(stream) -> int:
+    """Return the declared filter-chain length without decoding the stream."""
+    filters = stream.get("/Filter")
+    if filters is None:
+        return 0
+    if isinstance(filters, pikepdf.Array):
+        return len(filters)
+    return 1
 
 
 def _stream_media_type(stream) -> str:

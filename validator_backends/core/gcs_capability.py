@@ -46,7 +46,23 @@ class GCSCapabilityError(RuntimeError):
 
 @dataclass(frozen=True, slots=True)
 class GCSCapabilityConfig:
-    """Non-secret limits accompanying one short-lived access token."""
+    """Non-secret limits accompanying one short-lived access token.
+
+    Split from :class:`_TokenState` deliberately: these three values are safe to
+    log and never change during the process lifetime, while the token beside them
+    is neither. Keeping them in separate objects means a debug log of the config
+    cannot accidentally include the bearer token.
+
+    Fields:
+        project_id: GCP project for the storage client. Supplied explicitly
+            because a validator container has no ambient project configuration.
+        allowed_prefix: The ``gs://bucket/…/`` prefix this attempt may touch.
+            :func:`assert_gcs_uri_allowed` checks every URI against it *before*
+            any request leaves the process, so an out-of-scope access fails here
+            with a clear error rather than as an opaque 403 from Google.
+        refresh_url: Worker endpoint that reissues the token. Unusable on its own
+            — see :class:`_RefreshContext`.
+    """
 
     project_id: str
     allowed_prefix: str
@@ -55,7 +71,22 @@ class GCSCapabilityConfig:
 
 @dataclass(slots=True)
 class _TokenState:
-    """Mutable in-memory token state, with secret values excluded from repr."""
+    """Mutable in-memory token state, with secret values excluded from repr.
+
+    The one mutable piece of capability state: the token is replaced in place
+    when :func:`refresh_attempt_capability` re-authorizes the attempt, so this is
+    the only non-frozen dataclass here.
+
+    ``access_token`` is marked ``repr=False`` because a dataclass ``repr`` is
+    exactly what ends up in an exception traceback or a debug log line. Excluding
+    it at the field level means the token cannot leak through a code path nobody
+    remembered to audit.
+
+    Fields:
+        access_token: Current downscoped bearer token. Never logged.
+        expiry: When it stops working. Handed to the Google credentials object so
+            the SDK refreshes through our handler instead of failing mid-upload.
+    """
 
     access_token: str = field(repr=False)
     expiry: datetime
@@ -63,7 +94,33 @@ class _TokenState:
 
 @dataclass(frozen=True, slots=True)
 class _RefreshContext:
-    """Attempt proof learned only after the trusted input envelope is parsed."""
+    """Attempt proof learned only after the trusted input envelope is parsed.
+
+    This class encodes a deliberate ordering of trust, and the ordering is the
+    whole point:
+
+    1. The container starts holding a token good for reading one thing —
+       ``input.json``. It cannot renew that token, because renewal needs a
+       credential it does not yet have.
+    2. It reads and authenticates the input envelope, which carries the callback
+       nonce.
+    3. Only now can it renew, and renewal is a live re-authorization: the worker
+       verifies the nonce and refuses any attempt Django has already moved to a
+       terminal state.
+
+    Step 3 closes a real race. A task can sit in the queue while the run is
+    cancelled or times out, then get delivered with its original token still
+    valid. Because Service children refresh after parsing input but before
+    invoking any domain tool, a cancelled attempt is denied at that point and
+    never reaches the expensive work.
+
+    Fields:
+        run_id: The validation run this attempt belongs to.
+        callback_id: Identifies the specific callback slot being claimed.
+        callback_nonce: The shared secret proving this container legitimately
+            received the envelope. ``repr=False`` for the same reason as the
+            access token — it is bearer authority, and a traceback is a log.
+    """
 
     run_id: str
     callback_id: str

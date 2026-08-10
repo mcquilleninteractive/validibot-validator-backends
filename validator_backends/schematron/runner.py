@@ -2,7 +2,7 @@
 
 Orchestrates one run from the typed input envelope (ADR-2026-07-01 D3/D4b):
 
-1. Download the XML submission (``input_files[0]``); write the author's
+1. Resolve and download the declared ``xml_document``; write the author's
    rules — which arrived **inline** in ``inputs.schematron_text`` — to a
    working file.
 2. Re-apply the hardened-XML guard to the submission (D8, defence in depth).
@@ -52,12 +52,16 @@ from validibot_shared.validations.envelopes import (
     ValidationMessage,
     ValidationStatus,
 )
+from validibot_shared.validations.file_ports import select_input_file
 
 
 if TYPE_CHECKING:
     from validibot_shared.schematron.envelopes import SchematronInputEnvelope
 
 logger = logging.getLogger(__name__)
+
+XML_DOCUMENT_PORT_KEY = "xml_document"
+XML_DOCUMENT_ROLE = "xml-document"
 
 # Findings-severity strings → the shared Severity enum for the generic
 # ``messages`` list (Django rebuilds rich findings from outputs.findings;
@@ -77,6 +81,15 @@ class SchematronRunResult(NamedTuple):
     svrl_text: str = ""
 
 
+def _xml_document_item(input_envelope: SchematronInputEnvelope):
+    """Return the Schematron XML document through the shared matcher."""
+    return select_input_file(
+        input_envelope.input_files,
+        port_key=XML_DOCUMENT_PORT_KEY,
+        legacy_role=XML_DOCUMENT_ROLE,
+    )
+
+
 def run_schematron_validation(
     input_envelope: SchematronInputEnvelope,
 ) -> SchematronRunResult:
@@ -91,7 +104,8 @@ def run_schematron_validation(
         svrl_path = tmpdir / "report.svrl"
 
         try:
-            download_verified_file(input_envelope.input_files[0], submission_path)
+            submission_item = _xml_document_item(input_envelope)
+            download_verified_file(submission_item, submission_path)
             sch_path.write_text(inputs.schematron_text, encoding="utf-8")
 
             # Both inputs are untrusted, and NOTHING must parse them before the
