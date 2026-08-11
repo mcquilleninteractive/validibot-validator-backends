@@ -350,11 +350,11 @@
       "version": "2.7.0"
     },
     {
-      "bom-ref": "validibot-shared-50@0.26.0",
+      "bom-ref": "validibot-shared-50@0.27.0",
       "name": "validibot-shared",
-      "purl": "pkg:pypi/validibot-shared@0.26.0",
+      "purl": "pkg:pypi/validibot-shared@0.27.0",
       "type": "library",
-      "version": "0.26.0"
+      "version": "0.27.0"
     }
   ],
   "dependencies": [
@@ -619,12 +619,12 @@
         "defusedxml-10@0.7.1",
         "pydantic-40@2.13.4"
       ],
-      "ref": "validibot-shared-50@0.26.0"
+      "ref": "validibot-shared-50@0.27.0"
     }
   ],
   "metadata": {
     "component": {
-      "bom-ref": "validibot-validator-backend-fmu@0.15.6",
+      "bom-ref": "validibot-validator-backend-fmu@0.15.7",
       "name": "validibot-validator-backend-fmu",
       "properties": [
         {
@@ -633,11 +633,11 @@
         },
         {
           "name": "io.validibot.shared-contract.version",
-          "value": "0.26.0"
+          "value": "0.27.0"
         }
       ],
       "type": "application",
-      "version": "0.15.6"
+      "version": "0.15.7"
     },
     "tools": [
       {
@@ -647,7 +647,7 @@
       }
     ]
   },
-  "serialNumber": "urn:uuid:b356b59d-f5b1-5dc9-8ec9-95c01824e755",
+  "serialNumber": "urn:uuid:445739a8-072c-54ed-906a-b9a3a4842ad2",
   "specVersion": "1.5",
   "version": 1
 }

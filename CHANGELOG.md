@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased - EnergyPlus 0.16.2; FMU/SHACL/Schematron 0.15.6; Portfolio Manager 0.16.6; PDF 0.1.2
+## Unreleased - EnergyPlus 0.16.3; FMU/SHACL/Schematron 0.15.7; Portfolio Manager 0.16.7; PDF 0.1.2
 
 ### Added
 
@@ -19,10 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Prepare every backend for the clean `validibot-shared==0.27.0` contract, in
-  which exact required port keys are the only file-selection identity. Direct
-  requirements, hash locks, application SBOMs, and inventory compatibility
-  metadata will move together after that package is published.
+- Align every backend with the published `validibot-shared==0.27.0` contract,
+  in which exact required port keys are the only file-selection identity.
+  Direct requirements, hash locks, application SBOMs, and inventory
+  compatibility metadata move together.
 - Delegate IDF/IDD validity, including duplicate object-name rules, to the
   selected EnergyPlus binary and IDD. The legacy `duplicate-names` review-check
   value remains a compatible no-op for saved workflows.
