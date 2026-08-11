@@ -19,9 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Align every backend with the published `validibot-shared==0.26.0` contract,
-  including direct requirements, hash locks, application SBOMs, and inventory
-  compatibility metadata for the canonical named file-port selectors.
+- Prepare every backend for the clean `validibot-shared==0.27.0` contract, in
+  which exact required port keys are the only file-selection identity. Direct
+  requirements, hash locks, application SBOMs, and inventory compatibility
+  metadata will move together after that package is published.
 - Delegate IDF/IDD validity, including duplicate object-name rules, to the
   selected EnergyPlus binary and IDD. The legacy `duplicate-names` review-check
   value remains a compatible no-op for saved workflows.

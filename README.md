@@ -148,7 +148,7 @@ Current backend ports:
 | SHACL | `input_files[port_key=data_graph, role=data-graph]`; shapes and ontology currently travel inline in typed `inputs` | Future large/reusable shapes or ontologies should become declared resource/artifact ports. |
 | Schematron | `input_files[port_key=xml_document, role=xml-document]`; Schematron rules currently travel inline in typed `inputs` | Future generated or reusable `.sch` files should become declared resource/artifact ports. |
 | Building benchmark reports | `input_files[port_key=portfolio_manager_report, role=portfolio-manager-report]`; optional `resource_files[port_key=expected_buildings_list]` | Accepts one XLS/XLSX/XML report or ZIP collection and emits the bounded scalar catalog plus the property-results JSON artifact. |
-| PDF packages | `input_files[port_key=pdf_document, role=pdf-document]` | Emits a bounded inventory plus distinct XMP, attachment, associated-file, embedded-file, and semantic-payload artifacts for explicit downstream bindings. |
+| PDF packages | `input_files[port_key=pdf_document, role=pdf-document]` | Emits the V2 inventory, optional XMP and deterministic extracted-files bundle, plus fixed selected XML, JSON, and STEP Part 21 artifacts for explicit downstream bindings. |
 
 Backend code must use the shared `select_input_file()` and
 `select_resource_file()` helpers. They match the required exact `port_key` and
@@ -711,27 +711,31 @@ from validibot_shared.myvalidator.envelopes import (
     MyValidatorOutputs,
 )
 from validibot_shared.validations.envelopes import ValidationMessage, ValidationStatus
+from validibot_shared.validations.file_ports import select_input_file
 
 
 def run_validation(envelope: MyValidatorInputEnvelope) -> MyValidatorOutputEnvelope:
     messages = []
-    items_checked = 0
+    items_checked = 1
     items_passed = 0
 
-    # Your validation logic here
-    for input_file in envelope.input_files:
-        items_checked += 1
-        # ... validate file ...
-        if valid:
-            items_passed += 1
-        else:
-            messages.append(
-                ValidationMessage(
-                    severity="error",
-                    code="MY001",
-                    text=f"Validation failed for {input_file.name}",
-                )
+    # The catalog declares `source_document` as a required singleton file port.
+    # Its port key is the only selection identity at the process boundary.
+    input_file = select_input_file(
+        envelope.input_files,
+        port_key="source_document",
+    )
+    # ... download, verify, and validate input_file ...
+    if valid:
+        items_passed = 1
+    else:
+        messages.append(
+            ValidationMessage(
+                severity="error",
+                code="MY001",
+                text=f"Validation failed for {input_file.name}",
             )
+        )
 
     status = ValidationStatus.SUCCESS if not messages else ValidationStatus.FAILURE
 

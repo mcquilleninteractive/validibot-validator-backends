@@ -79,7 +79,8 @@ def test_manifest_schema_and_paths_are_valid():
         assert backend["execution_shapes"] == ["job", "service"]
         assert backend["service_runtime_contract"] == "validibot-execution-v1"
         assert backend["service_concurrency"] == 1
-        assert backend["service_max_domain_seconds"] == 1500
+        expected_domain_seconds = 300 if slug == "pdf" else 1500
+        assert backend["service_max_domain_seconds"] == expected_domain_seconds
 
 
 def test_release_and_developer_builds_are_inventory_driven():

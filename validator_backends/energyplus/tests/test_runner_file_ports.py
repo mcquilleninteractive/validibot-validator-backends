@@ -130,11 +130,7 @@ def test_identifies_the_model_when_both_identifiers_are_present(downloads, tmp_p
 
 
 def test_identifies_the_model_from_port_key_when_role_is_absent(downloads, tmp_path):
-    """`role` is optional, so the port key must be sufficient on its own.
-
-    This is the case the previous role-only implementation failed: it would
-    have reported no primary model at all for an otherwise valid envelope.
-    """
+    """`role` is descriptive, so the port key is sufficient on its own."""
     envelope = _envelope(input_files=[_input_item(role=None)])
 
     model_file, _ = runner._download_input_files(envelope, tmp_path)

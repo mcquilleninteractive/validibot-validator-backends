@@ -105,5 +105,5 @@ platforms = ["linux/amd64"]
 execution_shapes = ["job", "service"]
 service_runtime_contract = "validibot-execution-v1"
 service_concurrency = 1
-service_max_domain_seconds = 1500
+service_max_domain_seconds = 300
 release = true

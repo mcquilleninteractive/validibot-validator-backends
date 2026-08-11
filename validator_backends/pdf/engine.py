@@ -1502,17 +1502,26 @@ def _inventory_rich_media(
         configurations = (
             content.get("/Configurations") if isinstance(content, pikepdf.Dictionary) else None
         )
-        configuration_items = (
-            list(configurations) if isinstance(configurations, pikepdf.Array) else []
+        configuration_count = (
+            len(configurations) if isinstance(configurations, pikepdf.Array) else 0
         )
         instance_count = 0
         script_count = 0
+        active_entry_count = configuration_count
+        active_entries_exceeded = active_entry_count > inputs.limits.max_action_entries
+        configuration_items = configurations if isinstance(configurations, pikepdf.Array) else ()
         for configuration in configuration_items:
+            if active_entries_exceeded:
+                break
             if not isinstance(configuration, pikepdf.Dictionary):
                 continue
             instances = configuration.get("/Instances")
             if isinstance(instances, pikepdf.Array):
                 instance_count += len(instances)
+                active_entry_count += len(instances)
+                if active_entry_count > inputs.limits.max_action_entries:
+                    active_entries_exceeded = True
+                    break
                 for instance in instances:
                     if not isinstance(instance, pikepdf.Dictionary):
                         continue
@@ -1521,6 +1530,12 @@ def _inventory_rich_media(
                         key in params for key in ("/FlashVars", "/Binding", "/Scripts")
                     ):
                         script_count += 1
+                        active_entry_count += 1
+                        if active_entry_count > inputs.limits.max_action_entries:
+                            active_entries_exceeded = True
+                            break
+                if active_entries_exceeded:
+                    break
         assets = content.get("/Assets") if isinstance(content, pikepdf.Dictionary) else None
         if isinstance(assets, pikepdf.Dictionary):
             asset_pairs, assets_truncated = _name_tree_pairs(
@@ -1549,7 +1564,7 @@ def _inventory_rich_media(
                 object_reference=_object_reference(annotation),
                 locations=[item.location],
                 asset_names=asset_names[:1_000],
-                configuration_count=len(configuration_items),
+                configuration_count=configuration_count,
                 instance_count=instance_count,
                 script_count=script_count,
                 activation_condition=(
@@ -1564,10 +1579,7 @@ def _inventory_rich_media(
                 ),
             )
         )
-        if (
-            len(configuration_items) + instance_count + script_count
-            > inputs.limits.max_action_entries
-        ):
+        if active_entries_exceeded:
             findings.append(
                 _message(
                     Severity.ERROR,

@@ -97,6 +97,30 @@ def _pdf_with_uri_link(tmp_path: Path) -> Path:
     return path
 
 
+def _pdf_with_rich_media_configurations(tmp_path: Path, count: int) -> Path:
+    """Create inert RichMedia configuration dictionaries for limit testing."""
+    pdf = pikepdf.new()
+    page = pdf.add_blank_page(page_size=(200, 200))
+    configurations = pikepdf.Array(
+        [pikepdf.Dictionary(Subtype=pikepdf.Name("/Video")) for _ in range(count)]
+    )
+    annotation = pdf.make_indirect(
+        pikepdf.Dictionary(
+            Type=pikepdf.Name("/Annot"),
+            Subtype=pikepdf.Name("/RichMedia"),
+            Rect=pikepdf.Array([10, 10, 100, 100]),
+            RichMediaContent=pikepdf.Dictionary(
+                Assets=pikepdf.Dictionary(Names=pikepdf.Array()),
+                Configurations=configurations,
+            ),
+        )
+    )
+    page.obj["/Annots"] = pikepdf.Array([annotation])
+    path = tmp_path / "rich-media.pdf"
+    pdf.save(path)
+    return path
+
+
 def test_exact_xml_selector_emits_original_verified_bytes(tmp_path: Path) -> None:
     """A unique exact member match should compose without rewriting XML bytes."""
     xml = b'<handover xmlns="urn:example:asset"><id>A-1</id></handover>'
@@ -358,6 +382,23 @@ def test_execution_deadline_is_a_domain_failure_with_inventory(
     assert result.status == ValidationStatus.FAILED_VALIDATION
     assert "pdf_inventory" in result.artifact_payloads
     assert any(message.code == "pdf.limit.execution_seconds" for message in result.messages)
+
+
+def test_rich_media_configuration_limit_stops_bounded_inspection(
+    tmp_path: Path,
+) -> None:
+    """Large RichMedia control arrays fail as evidence without full expansion."""
+    path = _pdf_with_rich_media_configurations(tmp_path, count=4)
+
+    result = inspect_pdf(
+        path,
+        source_name=path.name,
+        inputs=PdfInputs(limits=PdfProcessingLimits(max_action_entries=2)),
+    )
+
+    assert result.status == ValidationStatus.FAILED_VALIDATION
+    assert result.outputs.inventory.rich_media[0].configuration_count == 4
+    assert any(message.code == "pdf.limit.action_entries" for message in result.messages)
 
 
 def test_empty_user_password_encryption_is_inspected_with_permissions(

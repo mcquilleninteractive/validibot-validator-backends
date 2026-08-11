@@ -68,11 +68,7 @@ def test_resolves_the_model_when_both_identifiers_are_present():
 
 
 def test_resolves_the_model_from_port_key_when_role_is_absent():
-    """`role` is optional, so the declared port key must suffice on its own.
-
-    The previous implementation matched `role == "fmu"` only and would have
-    reported "no FMU" for this otherwise valid envelope.
-    """
+    """`role` is descriptive, so the declared port key suffices on its own."""
     envelope = _envelope(_fmu_item(role=None))
 
     assert _fmu_model_item(envelope).name == "model.fmu"
@@ -84,12 +80,7 @@ def test_resolves_the_model_from_port_key_when_role_is_absent():
 
 
 def test_rejects_two_candidate_models():
-    """Two candidates must fail loudly instead of silently taking the first.
-
-    The previous lookup broke out of its loop on the first role match, so an
-    ambiguous envelope resolved to whichever item happened to be listed first.
-    That is the precision gap this change closes.
-    """
+    """Two candidates must fail loudly instead of silently taking the first."""
     envelope = _envelope(_fmu_item(name="first.fmu"), _fmu_item(name="second.fmu"))
 
     with pytest.raises(ValueError, match="ambiguous"):
