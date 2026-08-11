@@ -7,8 +7,11 @@ dispatch independently of Saxon and the rules hardening suite.
 
 from types import SimpleNamespace
 
+import pytest
+
 from validator_backends.schematron.runner import _xml_document_item
 from validibot_shared.validations.envelopes import InputFileItem, SupportedMimeType
+from validibot_shared.validations.file_ports import FilePortLookupError
 
 
 def _item(*, name: str, port_key: str, role: str | None) -> InputFileItem:
@@ -36,3 +39,32 @@ def test_xml_document_is_selected_by_port_key_instead_of_position() -> None:
     envelope = SimpleNamespace(input_files=[side_file, document])
 
     assert _xml_document_item(envelope) is document
+
+
+def test_xml_document_role_cannot_override_a_conflicting_port_key() -> None:
+    """A document-like role must not select a differently named file port."""
+    envelope = SimpleNamespace(
+        input_files=[
+            _item(
+                name="schema.xml",
+                port_key="schema_file",
+                role="xml-document",
+            )
+        ]
+    )
+
+    with pytest.raises(FilePortLookupError, match="was not found"):
+        _xml_document_item(envelope)
+
+
+def test_duplicate_xml_document_ports_are_rejected_as_ambiguous() -> None:
+    """Two exact documents must fail rather than make evidence order-dependent."""
+    envelope = SimpleNamespace(
+        input_files=[
+            _item(name="first.xml", port_key="xml_document", role=None),
+            _item(name="second.xml", port_key="xml_document", role=None),
+        ]
+    )
+
+    with pytest.raises(FilePortLookupError, match="ambiguous; found 2"):
+        _xml_document_item(envelope)
