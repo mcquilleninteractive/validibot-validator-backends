@@ -151,12 +151,10 @@ Current backend ports:
 | PDF packages | `input_files[port_key=pdf_document, role=pdf-document]` | Emits a bounded inventory plus distinct XMP, attachment, associated-file, embedded-file, and semantic-payload artifacts for explicit downstream bindings. |
 
 Backend code must use the shared `select_input_file()` and
-`select_resource_file()` helpers. They match an exact `port_key` and fall back
-to `role` or `type` only when that individual item has no port key. This detail
-matters: an item carrying a different explicit key must not impersonate a port
-through an old role label. The helpers also reject missing and ambiguous inputs
-instead of depending on list order. Do not add backend-local matchers or read
-`input_files[0]`.
+`select_resource_file()` helpers. They match the required exact `port_key` and
+reject missing or ambiguous inputs instead of depending on list order. A
+descriptive `role` or resource `type` never reclassifies a file. Do not add
+backend-local matchers or read `input_files[0]`.
 
 ## Important Disclaimers
 
@@ -373,6 +371,10 @@ just test
 # Run tests for a specific validator
 just test-validator energyplus
 ```
+
+The test suite includes bounded Hypothesis properties for the backend runtime
+trust boundary. See `CONTRIBUTING.md` for their contracts, expected rejection
+exceptions, and the command that reproduces the CI profile.
 
 Normal development and CI use the exact published `validibot-shared` wheel
 recorded in `uv.lock`, matching the package installed in every backend image.

@@ -11,7 +11,7 @@ from validator_backends.shacl.runner import _data_graph_item
 from validibot_shared.validations.envelopes import InputFileItem, SupportedMimeType
 
 
-def _item(*, name: str, port_key: str | None, role: str | None) -> InputFileItem:
+def _item(*, name: str, port_key: str, role: str | None) -> InputFileItem:
     """Build one integrity-complete RDF item for dispatch tests."""
     return InputFileItem(
         name=name,
@@ -36,10 +36,3 @@ def test_data_graph_is_selected_by_port_key_instead_of_position() -> None:
     envelope = SimpleNamespace(input_files=[side_file, data_graph])
 
     assert _data_graph_item(envelope) is data_graph
-
-
-def test_keyless_data_graph_uses_its_backend_role() -> None:
-    """A schema-valid producer that omits the key can retain role compatibility."""
-    data_graph = _item(name="data.ttl", port_key=None, role="data-graph")
-
-    assert _data_graph_item(SimpleNamespace(input_files=[data_graph])) is data_graph

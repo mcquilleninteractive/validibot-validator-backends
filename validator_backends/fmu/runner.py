@@ -277,11 +277,8 @@ def run_fmu_simulation(input_envelope: FMUInputEnvelope) -> tuple[FMUOutputs, Pa
 
 
 # The declared Validibot file-port key for this validator, and the
-# backend-facing role Django writes alongside it. ``port_key`` is optional on
-# the shared envelope. The shared matcher uses this legacy role only for
-# keyless items; a conflicting explicit key is never reclassified by role.
+# The declared key is the sole identity used at the envelope boundary.
 FMU_MODEL_PORT_KEY = "fmu_model"
-FMU_MODEL_ROLE = "fmu"
 
 
 def _fmu_model_item(input_envelope):
@@ -289,7 +286,6 @@ def _fmu_model_item(input_envelope):
     return select_input_file(
         input_envelope.input_files,
         port_key=FMU_MODEL_PORT_KEY,
-        legacy_role=FMU_MODEL_ROLE,
     )
 
 

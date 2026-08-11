@@ -990,15 +990,10 @@ def run_energyplus_simulation(
     )
 
 
-# Declared Validibot file-port keys for this validator, and the backend-facing
-# role/type vocabulary Django writes alongside them. ``port_key`` is optional on
-# the shared envelope. The shared matcher uses these legacy labels only for
-# keyless items; a conflicting explicit key is never reclassified by role/type.
+# Declared Validibot file-port keys are the sole identities used to select
+# singleton inputs at the envelope boundary.
 PRIMARY_MODEL_PORT_KEY = "primary_model"
-PRIMARY_MODEL_ROLE = "primary-model"
 WEATHER_FILE_PORT_KEY = "weather_file"
-WEATHER_ROLE = "weather"
-WEATHER_RESOURCE_TYPE = "energyplus_weather"
 
 
 def _download_input_files(
@@ -1014,8 +1009,7 @@ def _download_input_files(
     Every file in the envelope is downloaded, because a model may reference
     side files this backend does not interpret. Only the primary model and the
     weather file are *identified*, and identification matches the declared
-    file-port key first, falling back to the backend-facing ``role`` or
-    ``type`` for envelopes that carry no port key.
+    file-port key only.
 
     Args:
         input_envelope: Input envelope with file URIs
@@ -1038,18 +1032,15 @@ def _download_input_files(
     model_item = select_input_file(
         input_envelope.input_files,
         port_key=PRIMARY_MODEL_PORT_KEY,
-        legacy_role=PRIMARY_MODEL_ROLE,
     )
     weather_input_item = select_input_file(
         input_envelope.input_files,
         port_key=WEATHER_FILE_PORT_KEY,
-        legacy_role=WEATHER_ROLE,
         required=False,
     )
     weather_resource_item = select_resource_file(
         resource_files,
         port_key=WEATHER_FILE_PORT_KEY,
-        legacy_type=WEATHER_RESOURCE_TYPE,
         required=False,
     )
     if weather_input_item is not None and weather_resource_item is not None:
@@ -1106,9 +1097,7 @@ def _download_input_files(
     if weather_file is None and input_envelope.inputs.run_simulation:
         raise ValueError(
             f"No weather file found. Provide the {WEATHER_FILE_PORT_KEY} port "
-            f"via resource_files (port_key='{WEATHER_FILE_PORT_KEY}' or "
-            f"type='{WEATHER_RESOURCE_TYPE}') or input_files "
-            f"(port_key='{WEATHER_FILE_PORT_KEY}' or role='{WEATHER_ROLE}')."
+            "through either resource_files or input_files."
         )
 
     return model_file, weather_file

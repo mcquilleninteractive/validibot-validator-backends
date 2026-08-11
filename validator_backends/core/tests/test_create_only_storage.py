@@ -34,6 +34,7 @@ def _local_input_item(source, payload: bytes) -> InputFileItem:
     return InputFileItem(
         name="input.bin",
         mime_type=SupportedMimeType.FMU,
+        port_key="test_input",
         uri=f"file://{source}",
         size_bytes=len(payload),
         sha256=digest,

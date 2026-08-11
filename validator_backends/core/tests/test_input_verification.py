@@ -31,6 +31,7 @@ def _local_item(path, payload: bytes, **overrides) -> InputFileItem:
     values = {
         "name": "input.bin",
         "mime_type": SupportedMimeType.FMU,
+        "port_key": "test_input",
         "uri": f"file://{path}",
         "size_bytes": len(payload),
         "sha256": digest,
@@ -45,6 +46,7 @@ def _gcs_item(payload: bytes, **overrides) -> InputFileItem:
     values = {
         "name": "input.bin",
         "mime_type": SupportedMimeType.FMU,
+        "port_key": "test_input",
         "uri": "gs://input-bucket/runs/attempt/input.bin",
         "size_bytes": len(payload),
         "sha256": _sha256(payload),

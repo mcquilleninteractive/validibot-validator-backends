@@ -67,46 +67,107 @@ validators := "energyplus fmu shacl schematron portfolio_manager pdf"
 
 # Run all tests
 test *args:
-    uv run --extra dev --extra fmu --extra shacl --extra schematron --extra portfolio_manager --extra pdf pytest {{args}}
+    uv run --frozen --extra dev --extra fmu --extra shacl --extra schematron --extra portfolio_manager --extra pdf pytest {{args}}
 
 # Run tests for a specific validator
 test-validator validator:
-    uv run --extra dev --extra fmu --extra shacl --extra schematron --extra portfolio_manager --extra pdf pytest validator_backends/{{validator}}/tests
+    uv run --frozen --extra dev --extra fmu --extra shacl --extra schematron --extra portfolio_manager --extra pdf pytest validator_backends/{{validator}}/tests
 
 # Lint all code
 lint:
-    uv run ruff check .
+    uv run --frozen --extra dev ruff check .
 
 # Lint and fix
 lint-fix:
-    uv run ruff check . --fix
+    uv run --frozen --extra dev ruff check . --fix
+
+# Verify formatting without changing files
+format-check:
+    uv run --frozen --extra dev ruff format --check .
 
 # Format code
 format:
-    uv run ruff format .
+    uv run --frozen --extra dev ruff format .
 
-# Type check
+# Report the advisory typing backlog until a ratcheting baseline is established.
 typecheck:
-    uv run mypy .
+    uv run --frozen --extra dev mypy --explicit-package-bases validator_backends scripts
+
+# Verify pyproject.toml and uv.lock describe the same dependency graph
+lock-check:
+    uv lock --check
 
 # Regenerate hash-locked image requirements and application SBOMs
 artifacts:
-    uv run python scripts/backend_artifacts.py generate
+    uv run --frozen python scripts/backend_artifacts.py generate
 
 # Verify generated image requirements and application SBOMs are current
 artifacts-check:
-    uv run python scripts/backend_artifacts.py check
+    uv run --frozen python scripts/backend_artifacts.py check
 
 # Verify the release inventory before deriving tags, image names, or build inputs
 inventory-check:
-    uv run python scripts/backend_inventory.py validate > /dev/null
+    uv run --frozen python scripts/backend_inventory.py validate > /dev/null
 
 # Reject unknown or unapproved licenses in the installed development environment
 licenses:
-    uv run --all-extras python scripts/generate_legal_artifacts.py --policy legal/license-policy.toml --check-only
+    uv run --frozen --all-extras python scripts/generate_legal_artifacts.py --policy legal/license-policy.toml --check-only
 
-# Run all checks used before a backend release
-check: lint inventory-check artifacts-check licenses test
+# Audit every hash-locked validator image dependency set
+audit:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for REQUIREMENTS_FILE in validator_backends/*/requirements.lock; do
+        echo "Auditing $REQUIREMENTS_FILE"
+        uvx --from pip-audit==2.10.1 pip-audit \
+            --require-hashes \
+            --disable-pip \
+            --strict \
+            --requirement "$REQUIREMENTS_FILE"
+    done
+
+# Run the deterministic local integration gate used before a backend release
+check: lock-check format-check lint inventory-check artifacts-check licenses test
+
+# Require the exact main-branch commit to have a successful CI workflow.
+_require-release-ci:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    gh auth status >/dev/null
+    REPO="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
+    HEAD_SHA="$(git rev-parse HEAD)"
+    RUN_INFO="$(
+        gh run list \
+            --repo "$REPO" \
+            --workflow ci.yml \
+            --branch main \
+            --commit "$HEAD_SHA" \
+            --event push \
+            --limit 1 \
+            --json databaseId,status,conclusion,url \
+            --jq 'if length == 0 then "" else .[0] | "\(.databaseId)|\(.status)|\(.conclusion // "")|\(.url)" end'
+    )"
+
+    if [[ -z "$RUN_INFO" ]]; then
+        echo "Error: No main-branch CI run exists for $HEAD_SHA."
+        echo "Push main and wait for CI before releasing."
+        exit 1
+    fi
+
+    IFS='|' read -r RUN_ID RUN_STATUS RUN_CONCLUSION RUN_URL <<< "$RUN_INFO"
+    if [[ "$RUN_STATUS" != "completed" ]]; then
+        echo "Waiting for CI run $RUN_ID to finish: $RUN_URL"
+        gh run watch "$RUN_ID" --repo "$REPO" --exit-status
+    elif [[ "$RUN_CONCLUSION" != "success" ]]; then
+        echo "Error: CI did not succeed for $HEAD_SHA: $RUN_URL"
+        exit 1
+    fi
+
+    echo "CI succeeded for $HEAD_SHA: $RUN_URL"
+
+# Run every local and remote release prerequisite without creating a tag
+release-check: check audit _require-release-ci
 
 # =============================================================================
 # Docker Build
@@ -381,8 +442,7 @@ shell validator:
 
 # Build, test, and deploy (for CI)
 ci-deploy validator stage:
-    just lint
-    just test-validator {{validator}}
+    just check
     just deploy {{validator}} {{stage}}
 
 # Verify all validators are deployable (dry run)
@@ -390,8 +450,7 @@ verify-all:
     #!/usr/bin/env bash
     set -euo pipefail
     echo "Verifying all validators..."
-    just lint
-    just test
+    just check
     for v in {{validators}}; do
         just build "$v"
     done
@@ -488,7 +547,13 @@ release BACKEND:
         exit 1
     fi
 
-    just check
+    just release-check
+
+    if [[ -n $(git status --porcelain) ]]; then
+        echo "✗ Release checks changed the working tree. Review and commit those changes first."
+        git status --short
+        exit 1
+    fi
 
     echo ""
     echo "About to sign and push tag $TAG."
@@ -608,7 +673,13 @@ release-all:
         exit 0
     fi
 
-    just check
+    just release-check
+
+    if [[ -n $(git status --porcelain) ]]; then
+        echo "✗ Release checks changed the working tree. Review and commit those changes first."
+        git status --short
+        exit 1
+    fi
 
     echo ""
     echo "About to publish these backend releases one at a time:"

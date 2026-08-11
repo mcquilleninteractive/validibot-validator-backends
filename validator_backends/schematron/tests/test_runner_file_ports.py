@@ -11,7 +11,7 @@ from validator_backends.schematron.runner import _xml_document_item
 from validibot_shared.validations.envelopes import InputFileItem, SupportedMimeType
 
 
-def _item(*, name: str, port_key: str | None, role: str | None) -> InputFileItem:
+def _item(*, name: str, port_key: str, role: str | None) -> InputFileItem:
     """Build one integrity-complete XML item for dispatch tests."""
     return InputFileItem(
         name=name,
@@ -36,10 +36,3 @@ def test_xml_document_is_selected_by_port_key_instead_of_position() -> None:
     envelope = SimpleNamespace(input_files=[side_file, document])
 
     assert _xml_document_item(envelope) is document
-
-
-def test_keyless_xml_document_uses_its_backend_role() -> None:
-    """The optional key does not invalidate an otherwise named XML document."""
-    document = _item(name="document.xml", port_key=None, role="xml-document")
-
-    assert _xml_document_item(SimpleNamespace(input_files=[document])) is document

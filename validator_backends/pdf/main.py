@@ -4,14 +4,16 @@ from __future__ import annotations
 
 import logging
 import sys
+import tempfile
 from datetime import UTC, datetime
+from pathlib import Path
 
 from validator_backends.core.callback_client import post_callback
 from validator_backends.core.envelope_loader import get_output_uri, load_input_envelope
 from validator_backends.core.error_reporting import report_fatal
 from validator_backends.core.output_identity import output_identity_for
 from validator_backends.core.replay import replay_existing_output
-from validator_backends.core.report_artifacts import upload_bytes_artifact
+from validator_backends.core.report_artifacts import upload_file_artifact
 from validator_backends.core.storage_client import upload_envelope
 from validator_backends.pdf.runner import run_pdf_validation
 from validibot_shared.pdf import PdfInputEnvelope, PdfOutputEnvelope
@@ -48,8 +50,9 @@ def main() -> int:
             logger.info("Replayed existing PDF output without recompute")
             return 0
 
-        result = run_pdf_validation(input_envelope)
-        artifacts = _upload_artifacts(input_envelope, result.artifact_payloads)
+        with tempfile.TemporaryDirectory(prefix="validibot-pdf-attempt-") as tmp:
+            result = run_pdf_validation(input_envelope, workspace=Path(tmp))
+            artifacts = _upload_artifacts(input_envelope, result.artifact_payloads)
         finished_at = datetime.now(UTC)
         output_uri = get_output_uri(input_envelope)
         output_envelope = PdfOutputEnvelope(
@@ -80,8 +83,8 @@ def main() -> int:
         return 1
 
 
-def _upload_artifacts(input_envelope, payloads: dict[str, bytes]):
-    """Upload only declared fixed artifacts, in stable contract order."""
+def _upload_artifacts(input_envelope, payloads):
+    """Upload verified staged files in stable fixed-contract order."""
     unknown = set(payloads) - set(_ARTIFACT_CONTRACT)
     if unknown:
         raise ValueError(f"PDF backend produced undeclared artifacts: {sorted(unknown)}")
@@ -92,12 +95,14 @@ def _upload_artifacts(input_envelope, payloads: dict[str, bytes]):
             continue
         filename, mime_type = _ARTIFACT_CONTRACT[contract_key]
         artifacts.append(
-            upload_bytes_artifact(
-                content=content,
+            upload_file_artifact(
+                source_path=content.path,
                 execution_bundle_uri=str(input_envelope.context.execution_bundle_uri),
                 filename=filename,
                 artifact_type=contract_key,
                 mime_type=mime_type,
+                expected_size_bytes=content.size_bytes,
+                expected_sha256=content.sha256,
             )
         )
     return artifacts

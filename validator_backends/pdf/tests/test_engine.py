@@ -15,6 +15,7 @@ from pathlib import Path
 
 import pikepdf
 
+from validator_backends.pdf import engine as pdf_engine
 from validator_backends.pdf.engine import inspect_pdf
 from validibot_shared.pdf import PdfInputs, PdfPayloadSelector, PdfProcessingLimits
 from validibot_shared.validations.envelopes import ValidationStatus
@@ -116,7 +117,7 @@ def test_exact_xml_selector_emits_original_verified_bytes(tmp_path: Path) -> Non
     assert result.status == ValidationStatus.SUCCESS, [
         (message.code, message.text) for message in result.messages
     ]
-    assert result.artifact_payloads["selected_xml"] == xml
+    assert result.artifact_payloads["selected_xml"].read_bytes() == xml
     assert result.outputs.inventory.members[0].sha256 == hashlib.sha256(xml).hexdigest()
     assert result.outputs.inventory.members[0].selected_output_key == "selected_xml"
 
@@ -173,9 +174,9 @@ def test_one_attempt_can_emit_all_six_fixed_artifacts(tmp_path: Path) -> None:
         "selected_json",
         "selected_step_p21",
     }
-    assert result.artifact_payloads["selected_xml"] == xml
-    assert result.artifact_payloads["selected_json"] == json_payload
-    assert result.artifact_payloads["selected_step_p21"] == step
+    assert result.artifact_payloads["selected_xml"].read_bytes() == xml
+    assert result.artifact_payloads["selected_json"].read_bytes() == json_payload
+    assert result.artifact_payloads["selected_step_p21"].read_bytes() == step
 
 
 def test_step_selector_accepts_both_registered_part_21_media_types(
@@ -208,7 +209,7 @@ def test_step_selector_accepts_both_registered_part_21_media_types(
     assert member.declared_media_type == "application/p21"
     assert member.detected_media_type == "model/step"
     assert "declared_type_mismatch" not in member.risk_flags
-    assert result.artifact_payloads["selected_step_p21"] == step
+    assert result.artifact_payloads["selected_step_p21"].read_bytes() == step
 
 
 def test_ambiguous_selector_fails_without_choosing_first(tmp_path: Path) -> None:
@@ -292,8 +293,8 @@ def test_extraction_bundle_is_deterministic_and_uses_hash_paths(
 
     first = inspect_pdf(path, source_name="drawing.pdf", inputs=inputs)
     second = inspect_pdf(path, source_name="drawing.pdf", inputs=inputs)
-    first_zip = first.artifact_payloads["extracted_files_bundle"]
-    second_zip = second.artifact_payloads["extracted_files_bundle"]
+    first_zip = first.artifact_payloads["extracted_files_bundle"].read_bytes()
+    second_zip = second.artifact_payloads["extracted_files_bundle"].read_bytes()
 
     assert first_zip == second_zip
     with zipfile.ZipFile(BytesIO(first_zip)) as archive:
@@ -313,8 +314,8 @@ def test_malformed_pdf_is_a_domain_result_with_an_inventory(tmp_path: Path) -> N
 
     assert result.status == ValidationStatus.FAILED_VALIDATION
     assert "pdf_inventory" in result.artifact_payloads
-    inventory = json.loads(result.artifact_payloads["pdf_inventory"])
-    assert inventory["schema_version"] == "validibot.pdf_inventory.v1"
+    inventory = json.loads(result.artifact_payloads["pdf_inventory"].read_bytes())
+    assert inventory["schema_version"] == "validibot.pdf_inventory.v2"
     assert any(message.code == "pdf.structure.invalid" for message in result.messages)
 
 
@@ -331,6 +332,32 @@ def test_configured_input_limit_is_a_domain_failure(tmp_path: Path) -> None:
     assert result.status == ValidationStatus.FAILED_VALIDATION
     assert "pdf_inventory" in result.artifact_payloads
     assert any(message.code == "pdf.limit.input_bytes" for message in result.messages)
+
+
+def test_execution_deadline_is_a_domain_failure_with_inventory(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    """Cooperative deadline exhaustion must still publish bounded evidence."""
+    path = _pdf_with_attachments(tmp_path, {})
+    clock_calls = 0
+
+    def elapsed_clock() -> float:
+        nonlocal clock_calls
+        clock_calls += 1
+        return 0.0 if clock_calls == 1 else 2.0
+
+    monkeypatch.setattr(pdf_engine.time, "monotonic", elapsed_clock)
+
+    result = inspect_pdf(
+        path,
+        source_name="drawing.pdf",
+        inputs=PdfInputs(limits=PdfProcessingLimits(max_execution_seconds=1)),
+    )
+
+    assert result.status == ValidationStatus.FAILED_VALIDATION
+    assert "pdf_inventory" in result.artifact_payloads
+    assert any(message.code == "pdf.limit.execution_seconds" for message in result.messages)
 
 
 def test_empty_user_password_encryption_is_inspected_with_permissions(
@@ -396,6 +423,6 @@ def test_inventory_output_limit_emits_a_small_failure_inventory(tmp_path: Path) 
     )
 
     assert result.status == ValidationStatus.FAILED_VALIDATION
-    inventory_bytes = result.artifact_payloads["pdf_inventory"]
+    inventory_bytes = result.artifact_payloads["pdf_inventory"].read_bytes()
     assert len(inventory_bytes) <= 10_000
     assert any(message.code == "pdf.limit.inventory_bytes" for message in result.messages)

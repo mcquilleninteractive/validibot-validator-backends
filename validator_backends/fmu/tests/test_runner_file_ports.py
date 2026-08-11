@@ -1,10 +1,8 @@
 """File-port resolution tests for the FMU runner's envelope dispatch.
 
-ADR-2026-07-06 gives every envelope file item two independent names: the
-Validibot-facing `port_key` (the declared port's `contract_key`, unique within
-a step contract) and the older backend-facing `role`. `port_key` is optional in
-`validibot-shared`, so the ADR's canonical rule is to match on `port_key` and
-fall back to `role`.
+ADR-2026-07-06 gives every envelope file item one stable selection identity:
+the required `port_key` declared by the validator contract. Backend-facing
+roles may describe files, but they cannot select or reclassify them.
 
 This suite covers `_fmu_model_item`, which answers the single question "which
 envelope item is the FMU to simulate?". It is tested directly because the
@@ -49,17 +47,13 @@ def _fmu_item(**overrides) -> InputFileItem:
 def _envelope(*input_files: InputFileItem) -> SimpleNamespace:
     """Build the minimal envelope surface `_fmu_model_item` reads.
 
-    The items are real shared models, which is the part under test: it proves
-    an omitted `port_key` is genuinely schema-valid rather than a fake these
-    tests invented.
+    Real shared models keep these tests aligned with the process-boundary
+    contract rather than a hand-built approximation.
     """
     return SimpleNamespace(input_files=list(input_files))
 
 
-# ── Identification by either declared identifier ──────────────────────────
-# Django writes both names, but only `role` is guaranteed by the schema, so
-# each must work alone. The port-key-only case is the one the previous
-# role-only lookup could not handle.
+# ── Identification by the declared contract key ───────────────────────────
 
 
 def test_resolves_the_model_when_both_identifiers_are_present():
@@ -80,18 +74,6 @@ def test_resolves_the_model_from_port_key_when_role_is_absent():
     reported "no FMU" for this otherwise valid envelope.
     """
     envelope = _envelope(_fmu_item(role=None))
-
-    assert _fmu_model_item(envelope).name == "model.fmu"
-
-
-def test_resolves_the_model_from_role_when_port_key_is_absent():
-    """`port_key` is optional, so `role` must remain a working fallback.
-
-    `build_fmu_input_envelope` in `validibot-shared` constructs its item with a
-    role and no port key, so requiring the port key would reject envelopes the
-    shared package itself produces.
-    """
-    envelope = _envelope(_fmu_item(port_key=None))
 
     assert _fmu_model_item(envelope).name == "model.fmu"
 

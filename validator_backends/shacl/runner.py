@@ -56,7 +56,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 DATA_GRAPH_PORT_KEY = "data_graph"
-DATA_GRAPH_ROLE = "data-graph"
 
 # Map the container's finding-severity strings to the shared Severity enum for
 # the generic ``messages`` list. SUCCESS has no Severity member, so success
@@ -236,7 +235,6 @@ def _data_graph_item(input_envelope: SHACLInputEnvelope):
     return select_input_file(
         input_envelope.input_files,
         port_key=DATA_GRAPH_PORT_KEY,
-        legacy_role=DATA_GRAPH_ROLE,
     )
 
 

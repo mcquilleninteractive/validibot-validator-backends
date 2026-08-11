@@ -61,7 +61,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 XML_DOCUMENT_PORT_KEY = "xml_document"
-XML_DOCUMENT_ROLE = "xml-document"
 
 # Findings-severity strings → the shared Severity enum for the generic
 # ``messages`` list (Django rebuilds rich findings from outputs.findings;
@@ -86,7 +85,6 @@ def _xml_document_item(input_envelope: SchematronInputEnvelope):
     return select_input_file(
         input_envelope.input_files,
         port_key=XML_DOCUMENT_PORT_KEY,
-        legacy_role=XML_DOCUMENT_ROLE,
     )
 
 

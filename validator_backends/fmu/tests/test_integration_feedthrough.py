@@ -45,6 +45,7 @@ def _verified_local_item(fixture: Path) -> InputFileItem:
         name="model.fmu",
         mime_type=SupportedMimeType.FMU,
         role="fmu",
+        port_key="fmu_model",
         uri=f"file://{fixture}",
         size_bytes=len(payload),
         sha256=digest,

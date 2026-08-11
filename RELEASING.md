@@ -10,6 +10,19 @@ Use the `just` recipes for routine releases. They read versions directly from
 uses the latest published `validibot-shared`, run the complete release checks,
 create signed tags, verify them against `.allowed_signers`, and push them.
 
+The command layers are:
+
+- `just check` — frozen lock, formatting, lint, inventory, generated image
+  locks and application SBOMs, license policy, and all tests;
+- `just audit` — vulnerability scanning for every hash-locked image dependency
+  set; and
+- `just release-check` — both commands plus the successful `ci.yml` push run
+  for the exact release commit.
+
+Both release commands run `release-check` and confirm it left the worktree
+clean before signing. Run it directly to inspect the complete gate without
+creating a tag.
+
 Release one backend:
 
 ```bash

@@ -14,7 +14,6 @@ import random
 import string
 import time
 import zipfile
-from io import BytesIO
 from pathlib import Path
 
 import pikepdf
@@ -37,11 +36,22 @@ GENERATED_CASE_COUNT = 300
 PROPERTY_TIMEOUT_SECONDS = 5
 
 
-def _record(data: bytes, *, name: str, media_type: str) -> _MemberRecord:
-    """Build one internal record with its digest and exact selector metadata."""
+def _record(
+    root: Path,
+    data: bytes,
+    *,
+    name: str,
+    media_type: str,
+) -> _MemberRecord:
+    """Build one internal record backed by the same staged file used in production."""
+    digest = hashlib.sha256(data).hexdigest()
+    path = root / digest
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(data)
     record = _MemberRecord(
-        data=data,
-        sha256=hashlib.sha256(data).hexdigest(),
+        path=path,
+        decoded_size_bytes=len(data),
+        sha256=digest,
         detected_media_type=media_type,
     )
     record.original_names.add(name)
@@ -74,14 +84,19 @@ def test_generated_file_spec_names_round_trip_as_evidence() -> None:
     assert time.monotonic() - started < PROPERTY_TIMEOUT_SECONDS
 
 
-def test_generated_exact_selectors_never_match_a_different_name() -> None:
+def test_generated_exact_selectors_never_match_a_different_name(tmp_path: Path) -> None:
     """Exact selection is equality-based and independent of traversal ordering."""
     randomizer = random.Random(32000)
 
     for case in range(GENERATED_CASE_COUNT):
         expected_name = f"member-{case}-{randomizer.randrange(1_000_000)}.xml"
         other_name = f"other-{case}-{randomizer.randrange(1_000_000)}.xml"
-        record = _record(b"<fixture/>", name=expected_name, media_type="application/xml")
+        record = _record(
+            tmp_path,
+            b"<fixture/>",
+            name=expected_name,
+            media_type="application/xml",
+        )
         assert _selector_matches(
             record,
             PdfPayloadSelector(original_filename=expected_name),
@@ -92,32 +107,46 @@ def test_generated_exact_selectors_never_match_a_different_name() -> None:
         )
 
 
-def test_generated_bundle_order_is_independent_of_record_insertion() -> None:
+def test_generated_bundle_order_is_independent_of_record_insertion(
+    tmp_path: Path,
+) -> None:
     """Hash ordering and normalized ZIP metadata make shuffled inputs identical."""
     randomizer = random.Random(16684)
     records = [
         _record(
+            tmp_path / "members",
             f"payload-{index}".encode(),
             name=f"../../member-{index}.xml",
             media_type="application/xml",
         )
         for index in range(20)
     ]
-    expected = _build_bundle({record.sha256: record for record in records})
+    expected_path = tmp_path / "expected.zip"
+    _build_bundle(
+        {record.sha256: record for record in records},
+        destination=expected_path,
+        max_bytes=10_000_000,
+    )
+    expected = expected_path.read_bytes()
 
-    for _case in range(50):
+    for case in range(50):
         randomizer.shuffle(records)
-        candidate = _build_bundle({record.sha256: record for record in records})
-        assert candidate == expected
+        candidate_path = tmp_path / f"candidate-{case}.zip"
+        _build_bundle(
+            {record.sha256: record for record in records},
+            destination=candidate_path,
+            max_bytes=10_000_000,
+        )
+        assert candidate_path.read_bytes() == expected
 
-    with zipfile.ZipFile(BytesIO(expected)) as archive:
+    with zipfile.ZipFile(expected_path) as archive:
         assert archive.namelist()[0] == "manifest.json"
         assert all(
             name == "manifest.json" or name.startswith("files/") for name in archive.namelist()
         )
 
 
-def test_safe_extensions_depend_only_on_detected_carrier() -> None:
+def test_safe_extensions_depend_only_on_detected_carrier(tmp_path: Path) -> None:
     """Generated hostile names cannot influence derived output leaf extensions."""
     randomizer = random.Random(19005)
     expected = {
@@ -131,7 +160,7 @@ def test_safe_extensions_depend_only_on_detected_carrier() -> None:
     for media_type, extension in expected.items():
         for case in range(30):
             name = f"../{randomizer.randrange(1_000_000)}.{case}.exe"
-            record = _record(b"fixture", name=name, media_type=media_type)
+            record = _record(tmp_path, b"fixture", name=name, media_type=media_type)
             assert _safe_extension(record) == extension
 
 

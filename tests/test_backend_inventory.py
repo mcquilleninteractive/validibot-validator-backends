@@ -175,7 +175,35 @@ def test_release_workflow_blocks_publish_until_repository_release_gate_passes():
     assert "needs: [select-release, test-selected-backend]" in release_yml
 
     assert "inventory-check:" in justfile
-    assert "check: lint inventory-check artifacts-check licenses test" in justfile
+    assert (
+        "check: lock-check format-check lint inventory-check artifacts-check licenses test"
+        in justfile
+    )
+
+
+def test_release_commands_require_locked_audit_and_exact_commit_ci():
+    """A direct main push must pass its own complete release gate before tagging."""
+    justfile = JUSTFILE_PATH.read_text(encoding="utf-8")
+
+    assert "release-check: check audit _require-release-ci" in justfile
+    assert "--require-hashes" in justfile
+    assert "validator_backends/*/requirements.lock" in justfile
+    assert "--workflow ci.yml" in justfile
+    assert '--commit "$HEAD_SHA"' in justfile
+    assert "--event push" in justfile
+    assert 'gh run watch "$RUN_ID"' in justfile
+    assert justfile.count("just release-check") == 2
+    assert justfile.count("Release checks changed the working tree") == 2
+
+
+def test_local_gate_is_frozen_and_matches_ci_formatting_policy():
+    """Local release checks must reject lock drift and formatting CI would reject."""
+    justfile = JUSTFILE_PATH.read_text(encoding="utf-8")
+
+    assert "uv lock --check" in justfile
+    assert "uv run --frozen --extra dev ruff check ." in justfile
+    assert "uv run --frozen --extra dev ruff format --check ." in justfile
+    assert "just check\n    just deploy" in justfile
 
 
 def test_ci_exposes_one_aggregate_branch_protection_check():

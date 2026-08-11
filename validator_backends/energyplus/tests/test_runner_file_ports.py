@@ -1,10 +1,8 @@
 """File-port resolution tests for the EnergyPlus runner's envelope dispatch.
 
-ADR-2026-07-06 gives every envelope file item two independent names: the
-Validibot-facing `port_key` (the declared port's `contract_key`, unique within
-a step contract) and the older backend-facing `role` on input files or `type`
-on resource files. `port_key` is optional in `validibot-shared`, so the ADR's
-canonical rule is to match on `port_key` and fall back to `role`/`type`.
+ADR-2026-07-06 gives every envelope file item one stable selection identity:
+the required `port_key` declared by the validator contract. Roles and resource
+types remain descriptive metadata and cannot reclassify a file.
 
 This suite covers `_download_input_files`, which is the only place the
 EnergyPlus backend decides *which* downloaded file is the model and which is
@@ -17,8 +15,8 @@ because they are easy to break while refactoring dispatch:
 
 - every file in the envelope is downloaded, even ones the backend does not
   identify, since a model may reference side files it does not interpret;
-- a weather file arriving as a managed workflow resource in `resource_files`
-  supersedes one arriving in `input_files`, regardless of envelope order.
+- a weather file may arrive through either envelope channel, but not both,
+  because `weather_file` remains a singleton contract.
 """
 
 from __future__ import annotations
@@ -86,9 +84,8 @@ def _envelope(
     """Build the minimal envelope surface `_download_input_files` reads.
 
     The function touches only `input_files`, `resource_files`, and
-    `inputs.run_simulation`. The file items themselves are real shared models,
-    which is the part that matters here: it proves an omitted `port_key` is
-    genuinely schema-valid rather than something these tests fake.
+    `inputs.run_simulation`. Real shared models keep the test aligned with the
+    process-boundary contract.
     """
     return SimpleNamespace(
         input_files=input_files or [],
@@ -115,10 +112,7 @@ def downloads(monkeypatch, tmp_path: Path) -> list[Path]:
     return recorded
 
 
-# ── Identification by either declared identifier ──────────────────────────
-# Django writes both `port_key` and `role`, but only the latter is guaranteed
-# by the shared schema, so each has to work on its own. The port-key-only case
-# is the one the old role-only code could not handle at all.
+# ── Identification by the declared contract key ───────────────────────────
 
 
 def test_identifies_the_model_when_both_identifiers_are_present(downloads, tmp_path):
@@ -148,24 +142,11 @@ def test_identifies_the_model_from_port_key_when_role_is_absent(downloads, tmp_p
     assert model_file == tmp_path / "model.idf"
 
 
-def test_identifies_the_model_from_role_when_port_key_is_absent(downloads, tmp_path):
-    """`port_key` is optional, so `role` must remain a working fallback.
-
-    Envelopes built before file ports existed carry a role and no port key;
-    requiring the port key would reject input the shared contract permits.
-    """
-    envelope = _envelope(input_files=[_input_item(port_key=None)])
-
-    model_file, _ = runner._download_input_files(envelope, tmp_path)
-
-    assert model_file == tmp_path / "model.idf"
-
-
 def test_identifies_the_weather_resource_from_port_key_when_type_differs(
     downloads,
     tmp_path,
 ):
-    """Resource files fall back to `type`, but the port key takes precedence.
+    """The declared port key selects a resource independently of its type.
 
     A weather resource stored under a different `type` string is still the
     weather file if it is bound to the `weather_file` port.
@@ -173,26 +154,6 @@ def test_identifies_the_weather_resource_from_port_key_when_type_differs(
     envelope = _envelope(
         input_files=[_input_item()],
         resource_files=[_weather_resource(type="some_other_type")],
-        run_simulation=True,
-    )
-
-    _, weather_file = runner._download_input_files(envelope, tmp_path)
-
-    assert weather_file == tmp_path / "melbourne.epw"
-
-
-def test_identifies_the_weather_resource_from_type_when_port_key_is_absent(
-    downloads,
-    tmp_path,
-):
-    """The generic workflow-resource path in Django sets no port key.
-
-    `_build_step_resource_item` emits resource items without one, so `type`
-    has to keep working or every unmigrated EnergyPlus step loses its weather.
-    """
-    envelope = _envelope(
-        input_files=[_input_item()],
-        resource_files=[_weather_resource(port_key=None)],
         run_simulation=True,
     )
 
@@ -232,26 +193,6 @@ def test_accepts_weather_bound_through_input_files(downloads, tmp_path):
     model_file, weather_file = runner._download_input_files(envelope, tmp_path)
 
     assert model_file == tmp_path / "model.idf"
-    assert weather_file == tmp_path / "submitted.epw"
-
-
-def test_accepts_weather_in_input_files_identified_by_role_alone(downloads, tmp_path):
-    """An envelope carrying no port key still resolves weather by role."""
-    envelope = _envelope(
-        input_files=[
-            _input_item(),
-            _input_item(
-                name="submitted.epw",
-                mime_type=SupportedMimeType.ENERGYPLUS_EPW,
-                role="weather",
-                port_key=None,
-            ),
-        ],
-        run_simulation=True,
-    )
-
-    _, weather_file = runner._download_input_files(envelope, tmp_path)
-
     assert weather_file == tmp_path / "submitted.epw"
 
 

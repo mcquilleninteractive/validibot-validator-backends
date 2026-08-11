@@ -191,7 +191,6 @@ def _primary_report_item(input_envelope: PortfolioManagerInputEnvelope):
     return select_input_file(
         input_envelope.input_files,
         port_key="portfolio_manager_report",
-        legacy_role="portfolio-manager-report",
     )
 
 
@@ -360,7 +359,6 @@ def _load_ebl(
         item = select_resource_file(
             input_envelope.resource_files,
             port_key="expected_buildings_list",
-            legacy_type="portfolio_manager_ebl_v1",
             required=False,
         )
     except FilePortLookupError:

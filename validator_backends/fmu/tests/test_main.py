@@ -35,6 +35,7 @@ def _input_envelope() -> FMUInputEnvelope:
                 name="model.fmu",
                 mime_type=SupportedMimeType.FMU,
                 role="fmu",
+                port_key="fmu_model",
                 uri="gs://bucket/inputs/model.fmu",
                 size_bytes=42,
                 sha256="1" * 64,

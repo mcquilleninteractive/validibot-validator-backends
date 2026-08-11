@@ -1,10 +1,8 @@
 """Port resolution tests for the PDF runner's single declared input.
 
-ADR-2026-07-06 declares a `port_key` on every envelope file item so a backend
-can find the file belonging to a named Validibot file port without guessing
-from list position. That field is **optional** in `validibot-shared`
-(`InputFileItem.port_key` defaults to `None`), which means an envelope that
-omits it is still schema-valid and must not be rejected outright.
+ADR-2026-07-06 declares a required `port_key` on every envelope file item so a
+backend can find the file belonging to a named Validibot file port without
+guessing from list position or backend-specific role labels.
 
 These tests pin the runner to that contract. They exercise
 `_pdf_document_item` directly rather than `run_pdf_validation`, because the
@@ -76,12 +74,9 @@ def _envelope(*input_files: InputFileItem) -> PdfInputEnvelope:
     )
 
 
-# ── Identification by either declared identifier ──────────────────────────
-# The envelope carries two independent names for the same file: `port_key` is
-# the Validibot-facing file-port name that bindings and the step editor use,
-# and `role` is the backend-facing meaning. Django writes both, but only
-# `role` is guaranteed present by the shared schema, so the runner has to
-# accept a match on either one.
+# ── Identification by the declared contract key ───────────────────────────
+# `role` remains descriptive metadata, but the required `port_key` is the only
+# value allowed to select a file at the backend boundary.
 
 
 def test_resolves_the_document_when_django_sets_both_identifiers():
@@ -95,26 +90,8 @@ def test_resolves_the_document_when_django_sets_both_identifiers():
     assert _pdf_document_item(envelope).name == "document.pdf"
 
 
-def test_resolves_the_document_from_role_when_port_key_is_absent():
-    """A schema-valid envelope may omit `port_key` entirely.
-
-    `InputFileItem.port_key` is optional, and several shared envelope builders
-    (SHACL, Schematron, FMU) construct items without it. Matching on
-    `port_key` alone would reject input the shared contract permits, so `role`
-    has to serve as the fallback identifier.
-    """
-    envelope = _envelope(_pdf_item(port_key=None))
-
-    assert _pdf_document_item(envelope).name == "document.pdf"
-
-
 def test_resolves_the_document_from_port_key_when_role_is_absent():
-    """`role` is itself optional, so `port_key` must work on its own too.
-
-    This is the mirror of the previous test and the case the runner already
-    handled before the fallback was added. Neither identifier is mandatory
-    on its own; the runner needs exactly one of them to match.
-    """
+    """Optional descriptive metadata cannot be required for file selection."""
     envelope = _envelope(_pdf_item(role=None))
 
     assert _pdf_document_item(envelope).name == "document.pdf"

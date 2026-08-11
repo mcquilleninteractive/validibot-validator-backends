@@ -72,3 +72,40 @@ def upload_bytes_artifact(
         sha256=stored.sha256,
         storage_version=stored.storage_version,
     )
+
+
+def upload_file_artifact(
+    *,
+    source_path: Path,
+    execution_bundle_uri: str,
+    filename: str,
+    artifact_type: str,
+    mime_type: str,
+    expected_size_bytes: int,
+    expected_sha256: str,
+) -> ValidationArtifact:
+    """Upload one already-staged artifact after verifying its local identity.
+
+    Large backends stage bounded outputs directly on disk. Accepting that path
+    avoids copying the artifact through a second in-memory ``bytes`` value or a
+    second temporary file before the storage client streams it to its immutable
+    destination. The engine-provided identity is checked against what the
+    storage client actually read, so mutation between staging and upload fails
+    the attempt instead of publishing misleading evidence.
+    """
+    base_uri = execution_bundle_uri.rstrip("/")
+    artifact_uri = f"{base_uri}/outputs/{filename}"
+    stored = upload_file(source_path, artifact_uri, content_type=mime_type)
+    if stored.size_bytes != expected_size_bytes or stored.sha256 != expected_sha256:
+        msg = f"Staged artifact identity changed before upload: {source_path}"
+        raise ValueError(msg)
+
+    return ValidationArtifact(
+        name=filename,
+        type=artifact_type,
+        mime_type=mime_type,
+        uri=artifact_uri,
+        size_bytes=stored.size_bytes,
+        sha256=stored.sha256,
+        storage_version=stored.storage_version,
+    )

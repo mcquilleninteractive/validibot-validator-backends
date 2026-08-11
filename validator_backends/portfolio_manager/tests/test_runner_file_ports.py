@@ -11,7 +11,7 @@ from validator_backends.portfolio_manager.runner import _primary_report_item
 from validibot_shared.validations.envelopes import InputFileItem, SupportedMimeType
 
 
-def _item(*, name: str, port_key: str | None, role: str | None) -> InputFileItem:
+def _item(*, name: str, port_key: str, role: str | None) -> InputFileItem:
     """Build one integrity-complete report item for dispatch tests."""
     return InputFileItem(
         name=name,
@@ -40,14 +40,3 @@ def test_report_is_selected_by_port_key_instead_of_position() -> None:
     envelope = SimpleNamespace(input_files=[side_file, report])
 
     assert _primary_report_item(envelope) is report
-
-
-def test_keyless_report_uses_its_backend_role() -> None:
-    """Role-only envelopes remain valid because the shared key is optional."""
-    report = _item(
-        name="report.xlsx",
-        port_key=None,
-        role="portfolio-manager-report",
-    )
-
-    assert _primary_report_item(SimpleNamespace(input_files=[report])) is report

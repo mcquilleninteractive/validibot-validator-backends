@@ -147,7 +147,10 @@ def test_package_mechanisms_are_discovered_and_deduplicated() -> None:
     )
 
     assert result.status == ValidationStatus.SUCCESS, _codes(result)
-    assert result.artifact_payloads["selected_xml"] == EXPECTED_TYPED_PAYLOADS["selected_xml"]
+    assert (
+        result.artifact_payloads["selected_xml"].read_bytes()
+        == EXPECTED_TYPED_PAYLOADS["selected_xml"]
+    )
     members = {member.detected_media_type: member for member in result.outputs.inventory.members}
     xml_member = members["application/xml"]
     assert {
@@ -163,8 +166,8 @@ def test_package_mechanisms_are_discovered_and_deduplicated() -> None:
     inventory = result.outputs.inventory
     assert inventory.metadata["object_metadata"]
     assert inventory.declarations
-    assert inventory.extensions[0]["developer"] == "ISO_"
-    assert inventory.requirements[0]["subtype"] == "FixtureRequirement"
+    assert inventory.extensions[0].developer == "ISO_"
+    assert inventory.requirements[0].subtype == "FixtureRequirement"
     assert inventory.interactive_features["rich_media_annotations"] == 1
     assert inventory.interactive_features["three_d_streams"] == 1
 
@@ -178,10 +181,13 @@ def test_repeated_runs_emit_identical_inventory_and_zip_bytes() -> None:
     second = inspect_pdf(path, source_name=path.name, inputs=inputs)
 
     assert first.outputs.inventory == second.outputs.inventory
-    assert first.artifact_payloads["pdf_inventory"] == second.artifact_payloads["pdf_inventory"]
     assert (
-        first.artifact_payloads["extracted_files_bundle"]
-        == second.artifact_payloads["extracted_files_bundle"]
+        first.artifact_payloads["pdf_inventory"].read_bytes()
+        == second.artifact_payloads["pdf_inventory"].read_bytes()
+    )
+    assert (
+        first.artifact_payloads["extracted_files_bundle"].read_bytes()
+        == second.artifact_payloads["extracted_files_bundle"].read_bytes()
     )
 
 
@@ -231,7 +237,7 @@ def test_each_typed_selector_emits_the_exact_unique_bytes(
 
     payload = EXPECTED_TYPED_PAYLOADS[output_key]
     assert result.status == ValidationStatus.SUCCESS, _codes(result)
-    assert result.artifact_payloads[output_key] == payload
+    assert result.artifact_payloads[output_key].read_bytes() == payload
     selected_member = next(
         member
         for member in result.outputs.inventory.members
@@ -239,6 +245,28 @@ def test_each_typed_selector_emits_the_exact_unique_bytes(
     )
     assert selected_member.decoded_size_bytes == len(payload)
     assert selected_member.sha256 == hashlib.sha256(payload).hexdigest()
+
+
+def test_step_file_schema_selects_the_exact_part_21_member() -> None:
+    """Part 21 selection can use its bounded FILE_SCHEMA header identity."""
+    path = _fixture("typed-and-hazardous-members")
+
+    result = inspect_pdf(
+        path,
+        source_name=path.name,
+        inputs=PdfInputs(
+            selected_step_p21=PdfPayloadSelector(
+                required=True,
+                step_file_schema=["AP242_FIXTURE"],
+            )
+        ),
+    )
+
+    assert result.status == ValidationStatus.SUCCESS, _codes(result)
+    assert (
+        result.artifact_payloads["selected_step_p21"].read_bytes()
+        == EXPECTED_TYPED_PAYLOADS["selected_step_p21"]
+    )
 
 
 @pytest.mark.parametrize(
@@ -385,12 +413,11 @@ def test_active_features_are_inventoried_without_execution_network_or_rewrite(
     assert result.outputs.inventory.parser.recovery_attempted is False
     assert result.outputs.inventory.metadata["incremental_revision_markers"] == 1
     assert result.outputs.inventory.signatures
-    assert set(result.outputs.inventory.signatures[0]) == {
-        "object_reference",
-        "subfilter",
-        "byte_range_item_count",
-        "claimed_name",
-    }
+    signature = result.outputs.inventory.signatures[0]
+    assert signature.byte_range
+    assert signature.apparent_signed_revision_bytes is not None
+    assert signature.apparently_covers_current_file is False
+    assert signature.claimed_name
 
 
 # ── Encryption, malformed input, warnings, and bounded exhaustion ─────────
@@ -527,7 +554,7 @@ def test_bundle_output_exhaustion_emits_no_partial_zip() -> None:
         source_name=path.name,
         inputs=PdfInputs(
             emit_extracted_files_bundle=True,
-            limits=PdfProcessingLimits(max_total_member_bytes=50),
+            limits=PdfProcessingLimits(max_output_bundle_bytes=50),
         ),
     )
 

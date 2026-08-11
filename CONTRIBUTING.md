@@ -44,6 +44,28 @@ just check
 - Ensure `just check` passes before submitting
 - Write a clear PR description explaining the "why" behind the change
 
+## Security Property Tests
+
+Hypothesis complements the repository's fixed hostile-input fixtures at the
+runtime boundaries where generated variation adds value: attempt scratch
+confinement, immutable streamed input verification, and SHACL SPARQL policy
+checks. Shared envelope semantics remain tested in `validibot-shared` rather
+than being duplicated here.
+
+CI selects a bounded `ci` profile (75 examples per property with a 500 ms
+per-example deadline). To reproduce it locally:
+
+```bash
+HYPOTHESIS_PROFILE=ci just test \
+  validator_backends/core/tests/test_storage_properties.py \
+  validator_backends/shacl/tests/test_sparql_security_properties.py
+```
+
+Documented rejections such as `FileVerificationError`, `StorageConflictError`,
+and `SparqlScrubError` are expected outcomes. Unexpected exceptions, hangs,
+resource exhaustion, path escape, partial-file commits, or policy bypasses are
+bugs. Add every minimized genuine finding as a named regression test.
+
 ## Creating a New Validator
 
 See the [Creating a Custom Validator](README.md#creating-a-custom-validator)

@@ -30,20 +30,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Normalize every full-simulation IDF or epJSON working copy to emit
   `SimpleAndTabular` SQLite data in SI units and include the summary reports
   required for EUI and demand post-processing.
-- Resolve every named backend file through the shared selector. It matches the
-  exact `port_key`, uses a legacy role/type only for keyless items, and rejects
-  missing or ambiguous candidates. EnergyPlus, FMU, SHACL, Schematron,
-  Portfolio Manager, and PDF therefore share one fail-closed rule and never
-  depend on `input_files[0]`.
+- Resolve every named backend file through the shared selector. The required
+  exact `port_key` is the sole selection identity; missing and ambiguous
+  candidates fail closed. EnergyPlus, FMU, SHACL, Schematron, Portfolio Manager,
+  and PDF never depend on roles, resource types, or `input_files[0]`.
 - Expand bounded PDF package discovery across the reachable object graph,
   including generic associated files, RichMedia asset name trees, active and
   external feature inventory, object metadata, declarations, signatures, and
   incremental-revision evidence. Enforce filter-chain, decoded ratio, member,
   graph-depth, finding, and deterministic bundle-output limits fail closed.
-- Keep the keyless role/type fallback required by older schema-valid envelopes,
-  while refusing to reinterpret an item that carries an explicit different
-  port key. Weather supplied through `input_files` and downloading declared
-  side files remain unchanged.
+- Stage PDF members, typed selections, inventory JSON, XMP, and deterministic
+  ZIP output in the attempt workspace, then stream them through one verified
+  upload path instead of retaining large artifact byte copies in Python.
+- Expand the strict PDF inventory to V2 with typed Collection, RichMedia, 3D,
+  logical-structure, declaration, extension, requirement, signature, and STEP
+  `FILE_SCHEMA` evidence. All exact selector fields now round-trip through the
+  application and backend.
 - Correct the EnergyPlus weather-channel description in the runner and README.
   Weather arriving in `input_files` was documented as a legacy upload path; it
   is in fact the current path whenever the `weather_file` port is bound to a
