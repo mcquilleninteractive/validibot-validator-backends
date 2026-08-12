@@ -17,4 +17,4 @@ saxonche==13.0.0
 # Validibot shared library (from PyPI) — needs the Schematron envelope
 # contract + the canonical SVRL parser introduced in 0.12.0.
 # Pin exact version to bust Docker layer cache on upgrades.
-validibot-shared==0.27.0
+validibot-shared==0.28.0

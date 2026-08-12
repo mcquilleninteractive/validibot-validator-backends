@@ -22,4 +22,4 @@ lxml==6.1.1
 
 # Validibot shared library (from PyPI).
 # Pin exact version to bust Docker layer cache on upgrades.
-validibot-shared==0.27.0
+validibot-shared==0.28.0

@@ -1697,20 +1697,20 @@ wheels = [
 
 [[package]]
 name = "validibot-shared"
-version = "0.27.0"
+version = "0.28.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "defusedxml" },
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5a/d8/0a66e28d474d07e4d7d7f3e94e3d0e50ecd95e8ad84138d6b0077a3e5cb0/validibot_shared-0.27.0.tar.gz", hash = "sha256:2a083d30482670c91265b57bbfa5fcec8a7ca7be79e6af3acdd87b58b77fa292", size = 78068, upload-time = "2026-08-11T01:29:08.508Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d0/88/854230ee56068b23e3cc3d54bce07180abf2b76392ca06d7306650553f95/validibot_shared-0.28.0.tar.gz", hash = "sha256:cbe701d553dde846ce52d116bbb536acf8b54e3f8d9f78deb55767263f2f0630", size = 78498, upload-time = "2026-08-12T06:53:51.105Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a9/b8/8af2758770e9b66f8b4f781d485fe914a9076c0bfef1e29254550b5dd818/validibot_shared-0.27.0-py3-none-any.whl", hash = "sha256:225ff9b10a4667a509780a480faeba8842b03bfffa691a070a689ee4c3d6fadb", size = 63960, upload-time = "2026-08-11T01:29:07.151Z" },
+    { url = "https://files.pythonhosted.org/packages/d2/ed/b1e25d70aca814ebda3b5be0b16339339fa16e8b475b75ecc7d7a7cedd00/validibot_shared-0.28.0-py3-none-any.whl", hash = "sha256:39f85a04a53173e313aeaad61ec8226a2d22088607f2a94dd5703ae5bdf4b9d8", size = 63771, upload-time = "2026-08-12T06:53:49.806Z" },
 ]
 
 [[package]]
 name = "validibot-validator-backends"
-version = "0.16.3"
+version = "0.16.4"
 source = { editable = "." }
 dependencies = [
     { name = "google-auth" },
@@ -1786,7 +1786,7 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'dev'", specifier = "==0.16.1" },
     { name = "saxonche", marker = "extra == 'schematron'", specifier = "==13.0.0" },
     { name = "sentry-sdk", specifier = "==2.66.1" },
-    { name = "validibot-shared", specifier = "==0.27.0" },
+    { name = "validibot-shared", specifier = "==0.28.0" },
     { name = "xlrd", marker = "extra == 'portfolio-manager'", specifier = "==2.0.2" },
 ]
 provides-extras = ["dev", "energyplus", "fmu", "shacl", "schematron", "portfolio-manager", "pdf"]
