@@ -55,7 +55,7 @@ def _record(
         detected_media_type=media_type,
     )
     record.original_names.add(name)
-    record.discovery_kinds.add("file_specification")
+    record.discovery_kinds.add("embedded_files_name_tree")
     return record
 
 
@@ -152,8 +152,8 @@ def test_safe_extensions_depend_only_on_detected_carrier(tmp_path: Path) -> None
     expected = {
         "application/xml": ".xml",
         "application/json": ".json",
-        "application/pdf": ".pdf",
-        "application/zip": ".zip",
+        "application/pdf": ".bin",
+        "application/zip": ".bin",
         "model/step": ".p21",
         "application/octet-stream": ".bin",
     }

@@ -27,7 +27,7 @@ from validibot_shared.validations.envelopes import ValidationStatus
 FIXTURE_ROOT = Path(__file__).parent / "fixtures"
 MANIFEST_PATH = FIXTURE_ROOT / "manifest.json"
 EXPECTED_SCHEMA_VERSION = "validibot.pdf_test_corpus.v1"
-EXPECTED_CORPUS_VERSION = "1.0.0"
+EXPECTED_CORPUS_VERSION = "2.0.0"
 KNOWN_LICENSES = {"CC0-1.0"}
 EXPECTED_TYPED_PAYLOADS = {
     "selected_xml": b'<handover xmlns="urn:validibot:fixture"><id>A-1</id></handover>',
@@ -126,55 +126,72 @@ def test_minimal_pdf_versions_are_inventoried(
     assert result.outputs.inventory.parser.recovery_attempted is False
 
 
-def test_package_mechanisms_are_discovered_and_deduplicated() -> None:
-    """One payload reached through many mechanisms remains one evidenced member."""
-    path = _fixture("package-mechanisms")
-    selector = PdfPayloadSelector(
-        required=True,
-        original_filename="handover.xml",
-        declared_media_type="application/xml",
-        af_relationship="Data",
-        xml_root_qname="{urn:validibot:fixture}handover",
-    )
-
+def test_static_text_package_discovers_only_the_allowed_routes() -> None:
+    """The positive corpus case covers every permitted carrier and route."""
+    path = _fixture("static-text-package")
     result = inspect_pdf(
         path,
         source_name=path.name,
         inputs=PdfInputs(
             emit_extracted_files_bundle=True,
-            selected_xml=selector,
+            selected_xml=PdfPayloadSelector(
+                required=True,
+                original_filename="handover.xml",
+                declared_media_type="application/xml",
+                af_relationship="Data",
+                xml_root_qname="{urn:validibot:fixture}handover",
+            ),
+            selected_json=PdfPayloadSelector(original_filename="asset-index.json"),
+            selected_step_p21=PdfPayloadSelector(original_filename="assembly.p21"),
         ),
     )
 
     assert result.status == ValidationStatus.SUCCESS, _codes(result)
-    assert (
-        result.artifact_payloads["selected_xml"].read_bytes()
-        == EXPECTED_TYPED_PAYLOADS["selected_xml"]
-    )
-    members = {member.detected_media_type: member for member in result.outputs.inventory.members}
-    xml_member = members["application/xml"]
-    assert {
+    for output_key, payload in EXPECTED_TYPED_PAYLOADS.items():
+        assert result.artifact_payloads[output_key].read_bytes() == payload
+    assert set(result.artifact_payloads) == {
+        "pdf_inventory",
+        "xmp_metadata",
+        "extracted_files_bundle",
+        *EXPECTED_TYPED_PAYLOADS,
+    }
+    discovery_kinds = {
+        kind for member in result.outputs.inventory.members for kind in member.discovery_kinds
+    }
+    assert discovery_kinds == {
         "embedded_files_name_tree",
-        "file_specification",
         "associated_file",
         "file_attachment_annotation",
-    } <= set(xml_member.discovery_kinds)
-    assert len(xml_member.discovery_locations) >= 6
-    json_member = members["application/json"]
-    assert "rich_media_asset" in json_member.discovery_kinds
-    assert json_member.rich_media_asset_names == ["asset-index"]
-    inventory = result.outputs.inventory
-    assert inventory.metadata["object_metadata"]
-    assert inventory.declarations
-    assert inventory.extensions[0].developer == "ISO_"
-    assert inventory.requirements[0].subtype == "FixtureRequirement"
-    assert inventory.interactive_features["rich_media_annotations"] == 1
-    assert inventory.interactive_features["three_d_streams"] == 1
+    }
+
+
+def test_unsupported_package_mechanisms_are_rejected_without_publication() -> None:
+    """Rich media, 3D, object XMP, Collection, and broad AF routes fail closed."""
+    path = _fixture("package-mechanisms")
+    result = inspect_pdf(
+        path,
+        source_name=path.name,
+        inputs=PdfInputs(
+            emit_extracted_files_bundle=True,
+            selected_xml=PdfPayloadSelector(original_filename="handover.xml"),
+        ),
+    )
+
+    assert result.status == ValidationStatus.FAILED_VALIDATION
+    assert set(result.artifact_payloads) == {"pdf_inventory"}
+    assert {
+        "pdf.policy.static_text.unsupported_associated_file_route",
+        "pdf.policy.static_text.unsupported_file_specification_route",
+        "pdf.policy.static_text.object_metadata",
+        "pdf.policy.static_text.rich_media_annotations",
+        "pdf.policy.static_text.three_d_annotations",
+        "pdf.policy.static_text.collections",
+    } <= _codes(result)
 
 
 def test_repeated_runs_emit_identical_inventory_and_zip_bytes() -> None:
     """The same source and configuration must produce reproducible evidence."""
-    path = _fixture("package-mechanisms")
+    path = _fixture("static-text-package")
     inputs = PdfInputs(emit_extracted_files_bundle=True)
 
     first = inspect_pdf(path, source_name=path.name, inputs=inputs)
@@ -227,7 +244,7 @@ def test_each_typed_selector_emits_the_exact_unique_bytes(
     selector: PdfPayloadSelector,
 ) -> None:
     """A unique typed match is byte-preserving and independently digestable."""
-    path = _fixture("typed-and-hazardous-members")
+    path = _fixture("static-text-package")
 
     result = inspect_pdf(
         path,
@@ -249,7 +266,7 @@ def test_each_typed_selector_emits_the_exact_unique_bytes(
 
 def test_step_file_schema_selects_the_exact_part_21_member() -> None:
     """Part 21 selection can use its bounded FILE_SCHEMA header identity."""
-    path = _fixture("typed-and-hazardous-members")
+    path = _fixture("static-text-package")
 
     result = inspect_pdf(
         path,
@@ -277,7 +294,7 @@ def test_each_typed_selector_fails_closed_for_zero_and_multiple_matches(
     output_key: str,
 ) -> None:
     """Required absence and ambiguity emit no artifact and never choose first."""
-    path = _fixture("typed-and-hazardous-members")
+    path = _fixture("static-text-package")
 
     missing = inspect_pdf(
         path,
@@ -298,7 +315,7 @@ def test_each_typed_selector_fails_closed_for_zero_and_multiple_matches(
             **{
                 output_key: PdfPayloadSelector(
                     required=True,
-                    discovery_kinds=["file_specification"],
+                    discovery_kinds=["embedded_files_name_tree"],
                 )
             }
         ),
@@ -314,7 +331,7 @@ def test_each_typed_selector_fails_closed_for_zero_and_multiple_matches(
 
 def test_optional_zero_match_is_visible_without_minting_an_artifact() -> None:
     """An optional absent member is explicit evidence, never silent fallback."""
-    path = _fixture("typed-and-hazardous-members")
+    path = _fixture("static-text-package")
 
     result = inspect_pdf(
         path,
@@ -342,6 +359,8 @@ def test_member_hazards_preserve_names_as_evidence_only() -> None:
         inputs=PdfInputs(emit_extracted_files_bundle=True),
     )
 
+    assert result.status == ValidationStatus.FAILED_VALIDATION
+    assert set(result.artifact_payloads) == {"pdf_inventory"}
     all_flags = {flag for member in result.outputs.inventory.members for flag in member.risk_flags}
     assert {
         "filename_path_hazard",
@@ -358,14 +377,15 @@ def test_member_hazards_preserve_names_as_evidence_only() -> None:
         "executable_content",
     } <= all_flags
     assert {
-        "pdf.member.type_mismatch",
-        "pdf.member.conflicting_declared_types",
-        "pdf.member.duplicate_name",
-        "pdf.member.executable_content",
+        "pdf.policy.static_text.unsupported_member_type",
+        "pdf.policy.static_text.declared_type_mismatch",
+        "pdf.policy.static_text.conflicting_declared_types",
+        "pdf.policy.static_text.duplicate_name",
+        "pdf.policy.static_text.unsafe_filename",
     } <= _codes(result)
 
 
-# ── No execution, no network, no rewrite, and honest signature evidence ───
+# ── No execution, no network, no rewrite, and no signature interpretation ─
 # Active declarations are treated as inert PDF objects. Python-level process
 # and network entry points are booby-trapped to make any accidental activation
 # fail the test immediately.
@@ -390,7 +410,7 @@ def test_active_features_are_inventoried_without_execution_network_or_rewrite(
     result = inspect_pdf(
         path,
         source_name=path.name,
-        inputs=PdfInputs(profile="safe_static_package_v1"),
+        inputs=PdfInputs(),
     )
 
     assert result.status == ValidationStatus.FAILED_VALIDATION
@@ -398,13 +418,12 @@ def test_active_features_are_inventoried_without_execution_network_or_rewrite(
     for feature in (
         "javascript_actions",
         "xfa_entries",
-        "uri_actions",
         "launch_actions",
         "submit_form_actions",
         "import_data_actions",
         "reset_form_actions",
         "remote_go_to_actions",
-        "rich_media_automatic_activation",
+        "rich_media_annotations",
         "external_file_specifications",
     ):
         assert features[feature] >= 1
@@ -412,12 +431,8 @@ def test_active_features_are_inventoried_without_execution_network_or_rewrite(
     assert sorted(item.name for item in path.parent.iterdir()) == sibling_names
     assert result.outputs.inventory.parser.recovery_attempted is False
     assert result.outputs.inventory.metadata["incremental_revision_markers"] == 1
-    assert result.outputs.inventory.signatures
-    signature = result.outputs.inventory.signatures[0]
-    assert signature.byte_range
-    assert signature.apparent_signed_revision_bytes is not None
-    assert signature.apparently_covers_current_file is False
-    assert signature.claimed_name
+    assert result.outputs.inventory.interactive_features.get("uri_actions", 0) == 0
+    assert set(result.artifact_payloads) == {"pdf_inventory"}
 
 
 # ── Encryption, malformed input, warnings, and bounded exhaustion ─────────
@@ -425,8 +440,8 @@ def test_active_features_are_inventoried_without_execution_network_or_rewrite(
 # failure inventory; every exhausted budget is an error, never partial success.
 
 
-def test_encryption_paths_distinguish_empty_and_required_user_passwords() -> None:
-    """Inspectable permissions and secret-gated content have distinct outcomes."""
+def test_all_encryption_paths_have_one_fixed_policy_outcome() -> None:
+    """Empty and non-empty user passwords are equally outside the policy."""
     empty_path = _fixture("empty-user-password")
     required_path = _fixture("password-required")
 
@@ -437,12 +452,12 @@ def test_encryption_paths_distinguish_empty_and_required_user_passwords() -> Non
         inputs=PdfInputs(),
     )
 
-    assert empty.status == ValidationStatus.SUCCESS
+    assert empty.status == ValidationStatus.FAILED_VALIDATION
     assert empty.outputs.inventory.pdf.encrypted is True
-    assert empty.outputs.inventory.pdf.opened_with_empty_password is True
-    assert empty.outputs.inventory.pdf.permissions["extract"] is False
+    assert "pdf.policy.static_text.encryption" in _codes(empty)
+    assert set(empty.artifact_payloads) == {"pdf_inventory"}
     assert required.status == ValidationStatus.FAILED_VALIDATION
-    assert "pdf.encryption.password_required" in _codes(required)
+    assert "pdf.policy.static_text.encryption" in _codes(required)
     assert set(required.artifact_payloads) == {"pdf_inventory"}
 
 
@@ -514,7 +529,7 @@ def test_parser_warnings_are_preserved_without_silent_repair() -> None:
         (
             "excessive-filters",
             PdfProcessingLimits(),
-            "pdf.limit.stream_filters",
+            "pdf.policy.static_text.member_stream_filter",
         ),
         (
             "typed-and-hazardous-members",
@@ -547,7 +562,7 @@ def test_structural_and_output_limits_fail_closed_with_small_inputs(
 
 def test_bundle_output_exhaustion_emits_no_partial_zip() -> None:
     """ZIP overhead beyond the output budget fails instead of truncating bytes."""
-    path = _fixture("empty-user-password")
+    path = _fixture("static-text-package")
 
     result = inspect_pdf(
         path,

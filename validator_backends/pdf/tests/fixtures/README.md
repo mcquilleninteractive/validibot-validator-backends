@@ -10,6 +10,14 @@ license, intended mechanism or hazard, expected findings and artifact outcomes,
 byte length, and SHA-256 digest for every distributed PDF. The corpus-hygiene
 test rejects an unlisted file or stale digest.
 
+The positive `static-text-package` fixture contains document XMP and XML,
+JSON, and STEP Part 21 members through all three routes allowed by
+`static_text_package_v1`. The other fixtures prove that encryption, binary or
+ambiguous members, unsafe names, unsupported stream filters/routes,
+object-level metadata, active content, RichMedia, 3D, and Collections fail with
+inventory only. URI hyperlink targets and digital signatures are deliberately
+not interpreted by this validator.
+
 Regenerate the corpus with:
 
 ```bash

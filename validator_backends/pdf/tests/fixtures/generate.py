@@ -20,7 +20,7 @@ import pikepdf
 
 
 GENERATOR_ID = "validibot-pdf-corpus-generator"
-GENERATOR_VERSION = "1"
+GENERATOR_VERSION = "2"
 FIXTURE_ROOT = Path(__file__).resolve().parent
 GOLDEN = FIXTURE_ROOT / "golden"
 HOSTILE = FIXTURE_ROOT / "hostile"
@@ -252,6 +252,67 @@ def _package_mechanisms(path: Path) -> None:
     pdf.Root["/Collection"] = pikepdf.Dictionary(
         Type=pikepdf.Name("/Collection"),
         View=pikepdf.Name("/D"),
+    )
+    _save(pdf, path, version="2.0")
+    pdf.close()
+
+
+def _static_text_package(path: Path) -> None:
+    """Write the positive fixture for every allowed V1 carrier and route."""
+    pdf, page = _new_pdf()
+    xml_spec = _file_spec(
+        pdf,
+        name="handover.xml",
+        data=b'<handover xmlns="urn:validibot:fixture"><id>A-1</id></handover>',
+        media_type="application/xml",
+        relationship="Data",
+    )
+    json_spec = _file_spec(
+        pdf,
+        name="asset-index.json",
+        data=b'{"asset":"A-1"}',
+        media_type="application/json",
+        relationship="Supplement",
+    )
+    step_spec = _file_spec(
+        pdf,
+        name="assembly.p21",
+        data=(
+            b"ISO-10303-21;\nHEADER;\nFILE_SCHEMA(('AP242_FIXTURE'));\nENDSEC;\n"
+            b"DATA;\nENDSEC;\nEND-ISO-10303-21;\n"
+        ),
+        media_type="model/step",
+        relationship="Data",
+    )
+    _set_embedded_name_tree(
+        pdf,
+        [
+            ("asset-index.json", json_spec),
+            ("assembly.p21", step_spec),
+            ("handover.xml", xml_spec),
+        ],
+    )
+    pdf.Root["/AF"] = pikepdf.Array([xml_spec])
+    page.obj["/AF"] = pikepdf.Array([step_spec])
+    file_annotation = pdf.make_indirect(
+        pikepdf.Dictionary(
+            Type=pikepdf.Name("/Annot"),
+            Subtype=pikepdf.Name("/FileAttachment"),
+            Rect=pikepdf.Array([10, 10, 30, 30]),
+            FS=json_spec,
+            AF=pikepdf.Array([json_spec]),
+        )
+    )
+    page.obj["/Annots"] = pikepdf.Array([file_annotation])
+    pdf.Root["/Metadata"] = _xmp_stream(
+        pdf,
+        (
+            b'<x:xmpmeta xmlns:x="adobe:ns:meta/">'
+            b'<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">'
+            b'<rdf:Description rdf:about="" xmlns:vb="urn:validibot:fixture">'
+            b"<vb:policy>static_text_package_v1</vb:policy>"
+            b"</rdf:Description></rdf:RDF></x:xmpmeta>"
+        ),
     )
     _save(pdf, path, version="2.0")
     pdf.close()
@@ -616,8 +677,8 @@ def _descriptions() -> list[FixtureDescription]:
             "1.7",
             ["minimal_document"],
             [],
-            {"inventory_v1": []},
-            {"inventory_v1": inventory},
+            {"static_text_package_v1": []},
+            {"static_text_package_v1": inventory},
         ),
         FixtureDescription(
             "minimal-pdf-2",
@@ -625,8 +686,33 @@ def _descriptions() -> list[FixtureDescription]:
             "2.0",
             ["minimal_document"],
             [],
-            {"inventory_v1": []},
-            {"inventory_v1": inventory},
+            {"static_text_package_v1": []},
+            {"static_text_package_v1": inventory},
+        ),
+        FixtureDescription(
+            "static-text-package",
+            "golden/static-text-package.pdf",
+            "2.0",
+            [
+                "document_xmp",
+                "xml_json_step_members",
+                "embedded_files_name_tree",
+                "catalog_page_annotation_af",
+                "file_attachment_annotation",
+                "multi_path_same_stream",
+            ],
+            [],
+            {"static_text_package_v1": []},
+            {
+                "static_text_package_v1": [
+                    "pdf_inventory",
+                    "xmp_metadata",
+                    "extracted_files_bundle",
+                    "selected_xml",
+                    "selected_json",
+                    "selected_step_p21",
+                ]
+            },
         ),
         FixtureDescription(
             "package-mechanisms",
@@ -648,16 +734,9 @@ def _descriptions() -> list[FixtureDescription]:
                 "collection",
                 "multi_path_same_stream",
             ],
-            [],
-            {"inventory_v1": []},
-            {
-                "inventory_v1": [
-                    "pdf_inventory",
-                    "xmp_metadata",
-                    "extracted_files_bundle",
-                    "selected_xml",
-                ]
-            },
+            ["unsupported_package_routes", "active_content"],
+            {"static_text_package_v1": ["pdf.policy.static_text.*"]},
+            {"static_text_package_v1": inventory},
         ),
         FixtureDescription(
             "typed-and-hazardous-members",
@@ -672,21 +751,14 @@ def _descriptions() -> list[FixtureDescription]:
             ],
             ["filename_hazards", "type_mismatch", "executable_content"],
             {
-                "inventory_v1": [
-                    "pdf.member.type_mismatch",
-                    "pdf.member.executable_content",
-                    "pdf.member.duplicate_name",
+                "static_text_package_v1": [
+                    "pdf.policy.static_text.unsupported_member_type",
+                    "pdf.policy.static_text.declared_type_mismatch",
+                    "pdf.policy.static_text.duplicate_name",
+                    "pdf.policy.static_text.unsafe_filename",
                 ]
             },
-            {
-                "inventory_v1": [
-                    "pdf_inventory",
-                    "extracted_files_bundle",
-                    "selected_xml",
-                    "selected_json",
-                    "selected_step_p21",
-                ]
-            },
+            {"static_text_package_v1": inventory},
         ),
         FixtureDescription(
             "interactive-signature-incremental",
@@ -700,8 +772,8 @@ def _descriptions() -> list[FixtureDescription]:
                 "incremental_revision",
             ],
             ["active_content", "external_reference"],
-            {"inventory_v1": [], "safe_static_package_v1": ["pdf.profile.safe_static.*"]},
-            {"inventory_v1": inventory, "safe_static_package_v1": inventory},
+            {"static_text_package_v1": ["pdf.policy.static_text.*"]},
+            {"static_text_package_v1": inventory},
         ),
         FixtureDescription(
             "empty-user-password",
@@ -709,8 +781,8 @@ def _descriptions() -> list[FixtureDescription]:
             "1.7",
             ["standard_encryption", "empty_user_password", "permission_inventory"],
             [],
-            {"inventory_v1": []},
-            {"inventory_v1": inventory},
+            {"static_text_package_v1": ["pdf.policy.static_text.encryption"]},
+            {"static_text_package_v1": inventory},
             deterministic=False,
         ),
         FixtureDescription(
@@ -719,8 +791,8 @@ def _descriptions() -> list[FixtureDescription]:
             "1.7",
             ["standard_encryption", "user_password_required"],
             ["password_required"],
-            {"inventory_v1": ["pdf.encryption.password_required"]},
-            {"inventory_v1": inventory},
+            {"static_text_package_v1": ["pdf.policy.static_text.encryption"]},
+            {"static_text_package_v1": inventory},
             deterministic=False,
         ),
         FixtureDescription(
@@ -750,8 +822,8 @@ def _descriptions() -> list[FixtureDescription]:
             "1.7",
             ["flate_encoded_embedded_stream"],
             ["bounded_decompression_ratio"],
-            {"inventory_v1": ["pdf.limit.decode_ratio"]},
-            {"inventory_v1": inventory},
+            {"static_text_package_v1": ["pdf.limit.decode_ratio"]},
+            {"static_text_package_v1": inventory},
         ),
         FixtureDescription(
             "excessive-filters",
@@ -759,8 +831,8 @@ def _descriptions() -> list[FixtureDescription]:
             "1.7",
             ["embedded_stream_filter_chain"],
             ["excessive_filters"],
-            {"inventory_v1": ["pdf.limit.stream_filters"]},
-            {"inventory_v1": inventory},
+            {"static_text_package_v1": ["pdf.policy.static_text.member_stream_filter"]},
+            {"static_text_package_v1": inventory},
         ),
         FixtureDescription(
             "parser-warning",
@@ -768,8 +840,8 @@ def _descriptions() -> list[FixtureDescription]:
             "1.7",
             ["incorrect_stream_length"],
             ["parser_warning_without_recovery"],
-            {"inventory_v1": ["pdf.structure.parser_warning"]},
-            {"inventory_v1": inventory},
+            {"static_text_package_v1": ["pdf.structure.parser_warning"]},
+            {"static_text_package_v1": inventory},
         ),
         FixtureDescription(
             "malformed-xref",
@@ -777,8 +849,8 @@ def _descriptions() -> list[FixtureDescription]:
             "1.7",
             ["cross_reference_pointer"],
             ["malformed_xref"],
-            {"inventory_v1": ["pdf.structure.invalid"]},
-            {"inventory_v1": inventory},
+            {"static_text_package_v1": ["pdf.structure.invalid"]},
+            {"static_text_package_v1": inventory},
         ),
         FixtureDescription(
             "malformed-object-stream",
@@ -786,8 +858,8 @@ def _descriptions() -> list[FixtureDescription]:
             "1.7",
             ["object_stream", "trailer"],
             ["malformed_object_stream", "malformed_trailer"],
-            {"inventory_v1": ["pdf.structure.invalid"]},
-            {"inventory_v1": inventory},
+            {"static_text_package_v1": ["pdf.structure.invalid"]},
+            {"static_text_package_v1": inventory},
         ),
     ]
 
@@ -798,6 +870,7 @@ def _generate_files() -> None:
     HOSTILE.mkdir(parents=True, exist_ok=True)
     _minimal(GOLDEN / "minimal-pdf-1.7.pdf", version="1.7")
     _minimal(GOLDEN / "minimal-pdf-2.0.pdf", version="2.0")
+    _static_text_package(GOLDEN / "static-text-package.pdf")
     _package_mechanisms(GOLDEN / "package-mechanisms.pdf")
     _typed_and_hazardous_members(GOLDEN / "typed-and-hazardous-members.pdf")
     _interactive_and_signature(GOLDEN / "interactive-signature-incremental.pdf")
@@ -851,7 +924,7 @@ def _write_manifest(descriptions: list[FixtureDescription]) -> None:
         )
     manifest = {
         "schema_version": "validibot.pdf_test_corpus.v1",
-        "corpus_version": "1.0.0",
+        "corpus_version": "2.0.0",
         "generated_by": f"{GENERATOR_ID}/{GENERATOR_VERSION}",
         "fixtures": fixtures,
     }

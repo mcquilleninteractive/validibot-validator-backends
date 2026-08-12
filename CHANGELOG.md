@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased - EnergyPlus 0.16.3; FMU/SHACL/Schematron 0.15.7; Portfolio Manager 0.16.7; PDF 0.1.2
+## Unreleased - EnergyPlus 0.16.3; FMU/SHACL/Schematron 0.15.7; Portfolio Manager 0.16.7; PDF 0.1.3
 
 ### Added
 
@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add a versioned, digest-pinned CC0 golden/hostile PDF corpus with strict
   provenance hygiene plus bounded property coverage for traversal, names,
   selectors, deterministic bundles, and output limits.
+- Add a bounded Atheris harness for Validibot's PDF traversal and extraction
+  layer, with a scheduled CI campaign over the owned golden and hostile corpus.
 
 ### Changed
 
@@ -35,18 +37,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   exact `port_key` is the sole selection identity; missing and ambiguous
   candidates fail closed. EnergyPlus, FMU, SHACL, Schematron, Portfolio Manager,
   and PDF never depend on roles, resource types, or `input_files[0]`.
-- Expand bounded PDF package discovery across the reachable object graph,
-  including generic associated files, RichMedia asset name trees, active and
-  external feature inventory, object metadata, declarations, signatures, and
-  incremental-revision evidence. Enforce filter-chain, decoded ratio, member,
-  graph-depth, finding, and deterministic bundle-output limits fail closed.
+- Make `static_text_package_v1` the PDF backend's only policy. Accept only
+  unencrypted wrappers, document XMP, and XML/JSON/STEP Part 21 members reached
+  through EmbeddedFiles, catalog/page/annotation Associated Files, or
+  FileAttachment annotations. Reject other member routes and types, object
+  metadata, active content, multimedia, 3D, Collections, encryption, and
+  unsafe or ambiguous names.
 - Stage PDF members, typed selections, inventory JSON, XMP, and deterministic
   ZIP output in the attempt workspace, then stream them through one verified
   upload path instead of retaining large artifact byte copies in Python.
-- Expand the strict PDF inventory to V2 with typed Collection, RichMedia, 3D,
-  logical-structure, declaration, extension, requirement, signature, and STEP
-  `FILE_SCHEMA` evidence. All exact selector fields now round-trip through the
-  application and backend.
+- Keep the strict PDF inventory V2 shape while treating Collection, RichMedia,
+  3D, and other active structures only as shallow rejection evidence. Digital
+  signatures and URI targets are outside scope and are not interpreted or
+  copied. Exact selectors are limited to eligible XML, JSON, and STEP members.
 - Correct the EnergyPlus weather-channel description in the runner and README.
   Weather arriving in `input_files` was documented as a legacy upload path; it
   is in fact the current path whenever the `weather_file` port is bound to a
@@ -71,6 +74,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the `*` key.
 - Emit an explicit execution-failure finding when EnergyPlus exits nonzero
   without producing a specific error diagnostic.
+
+### Security
+
+- Permit only unfiltered or single plain-Flate XMP/member streams and reject
+  filter chains, decode parameters, and other codecs before extraction. Page
+  rendering resources remain outside the decoder entirely.
+- Publish supplementary artifacts atomically: any policy, structure, limit, or
+  selector error clears selections and withholds XMP and the extraction ZIP,
+  leaving only the bounded inventory.
+- Check EmbeddedFiles logical keys plus file-specification `/UF` and `/F`
+  values so harmless aliases cannot conceal unsafe or duplicate names.
+
+- Decode qpdf streams only in a disposable subprocess with parent wall-clock
+  enforcement, child CPU/file/descriptor/process/Linux address-space limits,
+  exclusive mode-0600 staging, independent size/hash verification, and an
+  environment allowlist that excludes attempt capabilities and callback
+  authority.
+- Mark the PDF container entrypoint and attempt process non-dumpable on Linux,
+  preventing the same-UID native parser child from recovering excluded secrets
+  through parent procfs or ptrace access; the control fails closed on Linux.
+- Cache isolated stream decodes by object identity and byte limit so duplicated
+  PDF references cannot multiply native-parser work.
 
 ## Backend releases: EnergyPlus 0.16.0; FMU/SHACL/Schematron 0.15.5; Portfolio Manager 0.16.5 - 2026-08-03
 

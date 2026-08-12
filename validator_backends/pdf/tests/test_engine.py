@@ -262,10 +262,107 @@ def test_ambiguous_selector_fails_without_choosing_first(tmp_path: Path) -> None
     assert any(message.code == "pdf.selector.ambiguous" for message in result.messages)
 
 
-def test_safe_static_profile_flags_javascript_without_executing_it(
+def test_active_xml_vocabulary_is_not_eligible_static_text(tmp_path: Path) -> None:
+    """SVG must not pass merely because it is well-formed XML text."""
+    path = _pdf_with_attachments(
+        tmp_path,
+        {
+            "diagram.svg": (
+                b'<svg xmlns="http://www.w3.org/2000/svg"><script>never_execute()</script></svg>'
+            )
+        },
+        declared_media_types={"diagram.svg": "application/xml"},
+    )
+
+    result = inspect_pdf(path, source_name=path.name, inputs=PdfInputs())
+
+    assert result.status == ValidationStatus.FAILED_VALIDATION
+    assert set(result.artifact_payloads) == {"pdf_inventory"}
+    assert any(
+        message.code == "pdf.policy.static_text.active_xml_vocabulary"
+        for message in result.messages
+    )
+    assert result.outputs.inventory.members[0].extraction_eligible is False
+
+
+def test_member_decode_parameters_are_rejected_before_extraction(tmp_path: Path) -> None:
+    """Even Flate predictor settings are outside the deliberately tiny codec set."""
+    source = _pdf_with_attachments(tmp_path, {"data.xml": b"<data/>"})
+    path = tmp_path / "decode-parameters.pdf"
+    with pikepdf.Pdf.open(source) as pdf:
+        names = pdf.Root["/Names"]["/EmbeddedFiles"]["/Names"]
+        stream = names[1]["/EF"]["/F"]
+        stream["/DecodeParms"] = pikepdf.Dictionary(Predictor=1)
+        pdf.save(path)
+
+    result = inspect_pdf(path, source_name=path.name, inputs=PdfInputs())
+
+    assert result.status == ValidationStatus.FAILED_VALIDATION
+    assert set(result.artifact_payloads) == {"pdf_inventory"}
+    assert any(
+        message.code == "pdf.policy.static_text.member_stream_filter"
+        for message in result.messages
+    )
+
+
+def test_document_xmp_requires_explicit_metadata_xml_identity(tmp_path: Path) -> None:
+    """An arbitrary catalog stream cannot become XMP solely by parsing as XML."""
+    source = _pdf_with_attachments(tmp_path, {})
+    path = tmp_path / "misidentified-xmp.pdf"
+    with pikepdf.Pdf.open(source) as pdf:
+        metadata = pdf.make_stream(b"<not-xmp/>")
+        metadata["/Type"] = pikepdf.Name("/FixtureStream")
+        metadata["/Subtype"] = pikepdf.Name("/FixtureXML")
+        pdf.Root["/Metadata"] = metadata
+        pdf.save(path)
+    serialized = path.read_bytes()
+    assert b"/Type /Metadata" in serialized
+    path.write_bytes(serialized.replace(b"/Type /Metadata", b"/Type /Metadatz", 1))
+
+    result = inspect_pdf(path, source_name=path.name, inputs=PdfInputs())
+
+    assert result.status == ValidationStatus.FAILED_VALIDATION
+    assert set(result.artifact_payloads) == {"pdf_inventory"}
+    assert any(
+        message.code == "pdf.policy.static_text.xmp_stream_identity" for message in result.messages
+    )
+
+
+def test_document_metadata_must_contain_an_xmp_rdf_packet(tmp_path: Path) -> None:
+    """Metadata/XML identity alone must not promote arbitrary XML as XMP."""
+    source = _pdf_with_attachments(tmp_path, {})
+    path = tmp_path / "not-xmp.pdf"
+    valid_xmp = (
+        b'<x:xmpmeta xmlns:x="adobe:ns:meta/">'
+        b'<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"/>'
+        b"</x:xmpmeta>"
+    )
+    with pikepdf.Pdf.open(source) as pdf:
+        metadata = pdf.make_stream(valid_xmp)
+        metadata["/Type"] = pikepdf.Name("/Metadata")
+        metadata["/Subtype"] = pikepdf.Name("/XML")
+        pdf.Root["/Metadata"] = metadata
+        pdf.save(path, compress_streams=False)
+    serialized = path.read_bytes()
+    identity_offset = serialized.index(b"/Type /Metadata")
+    stream_start = serialized.index(b"stream\n", identity_offset) + len(b"stream\n")
+    stream_end = serialized.index(b"\nendstream", stream_start)
+    ordinary_xml = b"<ordinary-metadata/>".ljust(stream_end - stream_start, b" ")
+    path.write_bytes(serialized[:stream_start] + ordinary_xml + serialized[stream_end:])
+
+    result = inspect_pdf(path, source_name=path.name, inputs=PdfInputs())
+
+    assert result.status == ValidationStatus.FAILED_VALIDATION
+    assert set(result.artifact_payloads) == {"pdf_inventory"}
+    assert any(
+        message.code == "pdf.policy.static_text.xmp_structure" for message in result.messages
+    )
+
+
+def test_static_text_policy_flags_javascript_without_executing_it(
     tmp_path: Path,
 ) -> None:
-    """Active content should become inventory evidence and a profile failure."""
+    """Active content must become inventory evidence and a policy failure."""
     path = _pdf_with_attachments(
         tmp_path,
         {"safe.xml": b"<safe/>"},
@@ -275,34 +372,31 @@ def test_safe_static_profile_flags_javascript_without_executing_it(
     result = inspect_pdf(
         path,
         source_name="active.pdf",
-        inputs=PdfInputs(profile="safe_static_package_v1"),
+        inputs=PdfInputs(),
     )
 
     assert result.status == ValidationStatus.FAILED_VALIDATION
     assert result.outputs.inventory.interactive_features["open_actions"] == 1
     assert any(
-        message.code == "pdf.profile.safe_static.open_actions" for message in result.messages
+        message.code == "pdf.policy.static_text.open_actions" for message in result.messages
     )
+    assert set(result.artifact_payloads) == {"pdf_inventory"}
 
 
-def test_safe_static_profile_warns_for_ordinary_uri_links(tmp_path: Path) -> None:
-    """A user-activated title-block link should not fail an otherwise inert PDF."""
+def test_static_text_policy_ignores_ordinary_uri_links(tmp_path: Path) -> None:
+    """Out-of-scope hyperlinks are neither followed, copied, nor policy findings."""
     path = _pdf_with_uri_link(tmp_path)
 
     result = inspect_pdf(
         path,
         source_name="linked.pdf",
-        inputs=PdfInputs(profile="safe_static_package_v1"),
+        inputs=PdfInputs(),
     )
 
     assert result.status == ValidationStatus.SUCCESS
-    assert result.outputs.inventory.interactive_features["uri_actions"] == 1
-    assert result.outputs.inventory.interactive_features["uri_action_targets"] == [
-        "https://example.test/specification"
-    ]
-    assert any(
-        message.code == "pdf.profile.safe_static.uri_actions" for message in result.messages
-    )
+    assert result.outputs.inventory.interactive_features.get("uri_actions", 0) == 0
+    assert "uri_action_targets" not in result.outputs.inventory.interactive_features
+    assert all("uri" not in message.code for message in result.messages)
 
 
 def test_extraction_bundle_is_deterministic_and_uses_hash_paths(
@@ -311,7 +405,7 @@ def test_extraction_bundle_is_deterministic_and_uses_hash_paths(
     """Original embedded names must remain metadata rather than ZIP entry paths."""
     path = _pdf_with_attachments(
         tmp_path,
-        {"../unsafe.xml": b"<safe/>"},
+        {"safe.xml": b"<safe/>"},
     )
     inputs = PdfInputs(emit_extracted_files_bundle=True)
 
@@ -322,11 +416,41 @@ def test_extraction_bundle_is_deterministic_and_uses_hash_paths(
 
     assert first_zip == second_zip
     with zipfile.ZipFile(BytesIO(first_zip)) as archive:
-        assert "../unsafe.xml" not in archive.namelist()
+        assert "safe.xml" not in archive.namelist()
         assert archive.namelist()[0] == "manifest.json"
         manifest = json.loads(archive.read("manifest.json"))
-        assert manifest["members"][0]["original_names"] == ["../unsafe.xml"]
+        assert manifest["members"][0]["original_names"] == ["safe.xml"]
         assert manifest["members"][0]["path"].startswith("files/")
+
+
+def test_unsafe_member_name_suppresses_every_supplementary_artifact(
+    tmp_path: Path,
+) -> None:
+    """One unsafe name must atomically withhold selectors, XMP, and ZIP output."""
+    source = _pdf_with_attachments(tmp_path, {"../unsafe.xml": b"<safe/>"})
+    path = tmp_path / "unsafe-with-xmp.pdf"
+    with pikepdf.Pdf.open(source) as pdf:
+        metadata = pdf.make_stream(b'<x:xmpmeta xmlns:x="adobe:ns:meta/"/>')
+        metadata["/Type"] = pikepdf.Name("/Metadata")
+        metadata["/Subtype"] = pikepdf.Name("/XML")
+        pdf.Root["/Metadata"] = metadata
+        pdf.save(path)
+
+    result = inspect_pdf(
+        path,
+        source_name=path.name,
+        inputs=PdfInputs(
+            emit_extracted_files_bundle=True,
+            selected_xml=PdfPayloadSelector(original_filename="../unsafe.xml"),
+        ),
+    )
+
+    assert result.status == ValidationStatus.FAILED_VALIDATION
+    assert set(result.artifact_payloads) == {"pdf_inventory"}
+    assert result.outputs.selected_output_keys == []
+    assert any(
+        message.code == "pdf.policy.static_text.unsafe_filename" for message in result.messages
+    )
 
 
 def test_malformed_pdf_is_a_domain_result_with_an_inventory(tmp_path: Path) -> None:
@@ -386,9 +510,15 @@ def test_execution_deadline_is_a_domain_failure_with_inventory(
 
 def test_rich_media_configuration_limit_stops_bounded_inspection(
     tmp_path: Path,
+    monkeypatch,
 ) -> None:
-    """Large RichMedia control arrays fail as evidence without full expansion."""
+    """RichMedia is rejected shallowly without decoding its internal assets."""
     path = _pdf_with_rich_media_configurations(tmp_path, count=4)
+
+    def forbidden_decode(*_args, **_kwargs):
+        raise AssertionError("RichMedia rejection attempted to decode a stream")
+
+    monkeypatch.setattr(pdf_engine.BoundedPdfStreamDecoder, "decode", forbidden_decode)
 
     result = inspect_pdf(
         path,
@@ -397,14 +527,18 @@ def test_rich_media_configuration_limit_stops_bounded_inspection(
     )
 
     assert result.status == ValidationStatus.FAILED_VALIDATION
-    assert result.outputs.inventory.rich_media[0].configuration_count == 4
-    assert any(message.code == "pdf.limit.action_entries" for message in result.messages)
+    assert result.outputs.inventory.interactive_features["rich_media_annotations"] == 1
+    assert any(
+        message.code == "pdf.policy.static_text.rich_media_annotations"
+        for message in result.messages
+    )
+    assert set(result.artifact_payloads) == {"pdf_inventory"}
 
 
-def test_empty_user_password_encryption_is_inspected_with_permissions(
+def test_empty_user_password_encryption_is_rejected_before_extraction(
     tmp_path: Path,
 ) -> None:
-    """Owner-password permission flags do not require a secret input to inspect."""
+    """Even empty-user-password encryption is outside the fixed policy."""
     source = _pdf_with_attachments(tmp_path, {"data.xml": b"<data/>"})
     encrypted = tmp_path / "owner-protected.pdf"
     with pikepdf.Pdf.open(source) as pdf:
@@ -420,16 +554,15 @@ def test_empty_user_password_encryption_is_inspected_with_permissions(
 
     result = inspect_pdf(encrypted, source_name=encrypted.name, inputs=PdfInputs())
 
-    assert result.status == ValidationStatus.SUCCESS
+    assert result.status == ValidationStatus.FAILED_VALIDATION
     facts = result.outputs.inventory.pdf
     assert facts.encrypted is True
-    assert facts.opened_with_empty_password is True
-    assert facts.permissions["extract"] is False
-    assert facts.permissions["print_highres"] is False
+    assert set(result.artifact_payloads) == {"pdf_inventory"}
+    assert any(message.code == "pdf.policy.static_text.encryption" for message in result.messages)
 
 
-def test_user_password_encryption_reports_password_required(tmp_path: Path) -> None:
-    """A genuinely secret-gated PDF should fail as data, not crash the backend."""
+def test_user_password_encryption_reports_the_same_policy_failure(tmp_path: Path) -> None:
+    """Password-gated encryption must not create a separate processing mode."""
     source = _pdf_with_attachments(tmp_path, {})
     encrypted = tmp_path / "password-required.pdf"
     with pikepdf.Pdf.open(source) as pdf:
@@ -445,7 +578,8 @@ def test_user_password_encryption_reports_password_required(tmp_path: Path) -> N
     result = inspect_pdf(encrypted, source_name=encrypted.name, inputs=PdfInputs())
 
     assert result.status == ValidationStatus.FAILED_VALIDATION
-    assert any(message.code == "pdf.encryption.password_required" for message in result.messages)
+    assert any(message.code == "pdf.policy.static_text.encryption" for message in result.messages)
+    assert set(result.artifact_payloads) == {"pdf_inventory"}
 
 
 def test_inventory_output_limit_emits_a_small_failure_inventory(tmp_path: Path) -> None:

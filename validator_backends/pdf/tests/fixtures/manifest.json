@@ -1,16 +1,16 @@
 {
-  "corpus_version": "1.0.0",
+  "corpus_version": "2.0.0",
   "fixtures": [
     {
       "author": "McQuillen Interactive Pty. Ltd.",
       "derived_from": null,
       "expected_artifacts": {
-        "inventory_v1": [
+        "static_text_package_v1": [
           "pdf_inventory"
         ]
       },
       "expected_findings": {
-        "inventory_v1": []
+        "static_text_package_v1": []
       },
       "fixture_id": "minimal-pdf-1x",
       "generator": {
@@ -19,7 +19,7 @@
         "pikepdf": "10.11.0",
         "qpdf": "12.3.2",
         "script": "generate.py",
-        "version": "1"
+        "version": "2"
       },
       "hazards": [],
       "license": "CC0-1.0",
@@ -39,12 +39,12 @@
       "author": "McQuillen Interactive Pty. Ltd.",
       "derived_from": null,
       "expected_artifacts": {
-        "inventory_v1": [
+        "static_text_package_v1": [
           "pdf_inventory"
         ]
       },
       "expected_findings": {
-        "inventory_v1": []
+        "static_text_package_v1": []
       },
       "fixture_id": "minimal-pdf-2",
       "generator": {
@@ -53,7 +53,7 @@
         "pikepdf": "10.11.0",
         "qpdf": "12.3.2",
         "script": "generate.py",
-        "version": "1"
+        "version": "2"
       },
       "hazards": [],
       "license": "CC0-1.0",
@@ -73,15 +73,58 @@
       "author": "McQuillen Interactive Pty. Ltd.",
       "derived_from": null,
       "expected_artifacts": {
-        "inventory_v1": [
+        "static_text_package_v1": [
           "pdf_inventory",
           "xmp_metadata",
           "extracted_files_bundle",
-          "selected_xml"
+          "selected_xml",
+          "selected_json",
+          "selected_step_p21"
         ]
       },
       "expected_findings": {
-        "inventory_v1": []
+        "static_text_package_v1": []
+      },
+      "fixture_id": "static-text-package",
+      "generator": {
+        "deterministic": true,
+        "id": "validibot-pdf-corpus-generator",
+        "pikepdf": "10.11.0",
+        "qpdf": "12.3.2",
+        "script": "generate.py",
+        "version": "2"
+      },
+      "hazards": [],
+      "license": "CC0-1.0",
+      "mechanisms": [
+        "document_xmp",
+        "xml_json_step_members",
+        "embedded_files_name_tree",
+        "catalog_page_annotation_af",
+        "file_attachment_annotation",
+        "multi_path_same_stream"
+      ],
+      "path": "golden/static-text-package.pdf",
+      "pdf_version": "2.0",
+      "provenance": "Repository-owned synthetic fixture generated from reviewed code.",
+      "redistributable": true,
+      "redistribution_restriction": "",
+      "sha256": "661418435c058cb35f5b1166242087a62287b8b76d8b9c7e6b5cdc09609b6a1e",
+      "size_bytes": 2489,
+      "synthetic": true
+    },
+    {
+      "author": "McQuillen Interactive Pty. Ltd.",
+      "derived_from": null,
+      "expected_artifacts": {
+        "static_text_package_v1": [
+          "pdf_inventory"
+        ]
+      },
+      "expected_findings": {
+        "static_text_package_v1": [
+          "pdf.policy.static_text.*"
+        ]
       },
       "fixture_id": "package-mechanisms",
       "generator": {
@@ -90,9 +133,12 @@
         "pikepdf": "10.11.0",
         "qpdf": "12.3.2",
         "script": "generate.py",
-        "version": "1"
+        "version": "2"
       },
-      "hazards": [],
+      "hazards": [
+        "unsupported_package_routes",
+        "active_content"
+      ],
       "license": "CC0-1.0",
       "mechanisms": [
         "document_xmp",
@@ -123,19 +169,16 @@
       "author": "McQuillen Interactive Pty. Ltd.",
       "derived_from": null,
       "expected_artifacts": {
-        "inventory_v1": [
-          "pdf_inventory",
-          "extracted_files_bundle",
-          "selected_xml",
-          "selected_json",
-          "selected_step_p21"
+        "static_text_package_v1": [
+          "pdf_inventory"
         ]
       },
       "expected_findings": {
-        "inventory_v1": [
-          "pdf.member.type_mismatch",
-          "pdf.member.executable_content",
-          "pdf.member.duplicate_name"
+        "static_text_package_v1": [
+          "pdf.policy.static_text.unsupported_member_type",
+          "pdf.policy.static_text.declared_type_mismatch",
+          "pdf.policy.static_text.duplicate_name",
+          "pdf.policy.static_text.unsafe_filename"
         ]
       },
       "fixture_id": "typed-and-hazardous-members",
@@ -145,7 +188,7 @@
         "pikepdf": "10.11.0",
         "qpdf": "12.3.2",
         "script": "generate.py",
-        "version": "1"
+        "version": "2"
       },
       "hazards": [
         "filename_hazards",
@@ -173,17 +216,13 @@
       "author": "McQuillen Interactive Pty. Ltd.",
       "derived_from": null,
       "expected_artifacts": {
-        "inventory_v1": [
-          "pdf_inventory"
-        ],
-        "safe_static_package_v1": [
+        "static_text_package_v1": [
           "pdf_inventory"
         ]
       },
       "expected_findings": {
-        "inventory_v1": [],
-        "safe_static_package_v1": [
-          "pdf.profile.safe_static.*"
+        "static_text_package_v1": [
+          "pdf.policy.static_text.*"
         ]
       },
       "fixture_id": "interactive-signature-incremental",
@@ -193,7 +232,7 @@
         "pikepdf": "10.11.0",
         "qpdf": "12.3.2",
         "script": "generate.py",
-        "version": "1"
+        "version": "2"
       },
       "hazards": [
         "active_content",
@@ -220,12 +259,14 @@
       "author": "McQuillen Interactive Pty. Ltd.",
       "derived_from": null,
       "expected_artifacts": {
-        "inventory_v1": [
+        "static_text_package_v1": [
           "pdf_inventory"
         ]
       },
       "expected_findings": {
-        "inventory_v1": []
+        "static_text_package_v1": [
+          "pdf.policy.static_text.encryption"
+        ]
       },
       "fixture_id": "empty-user-password",
       "generator": {
@@ -234,7 +275,7 @@
         "pikepdf": "10.11.0",
         "qpdf": "12.3.2",
         "script": "generate.py",
-        "version": "1"
+        "version": "2"
       },
       "hazards": [],
       "license": "CC0-1.0",
@@ -248,7 +289,7 @@
       "provenance": "Repository-owned synthetic fixture generated from reviewed code.",
       "redistributable": true,
       "redistribution_restriction": "",
-      "sha256": "6657791486d08042ff7025d7e830eeb99d0913ce76888f90c940a8e433a71b10",
+      "sha256": "be00357fb929101063820c9bd8bd87a562de8c6abd245fad0e9e867cca81055c",
       "size_bytes": 2000,
       "synthetic": true
     },
@@ -256,13 +297,13 @@
       "author": "McQuillen Interactive Pty. Ltd.",
       "derived_from": null,
       "expected_artifacts": {
-        "inventory_v1": [
+        "static_text_package_v1": [
           "pdf_inventory"
         ]
       },
       "expected_findings": {
-        "inventory_v1": [
-          "pdf.encryption.password_required"
+        "static_text_package_v1": [
+          "pdf.policy.static_text.encryption"
         ]
       },
       "fixture_id": "password-required",
@@ -272,7 +313,7 @@
         "pikepdf": "10.11.0",
         "qpdf": "12.3.2",
         "script": "generate.py",
-        "version": "1"
+        "version": "2"
       },
       "hazards": [
         "password_required"
@@ -287,7 +328,7 @@
       "provenance": "Repository-owned synthetic fixture generated from reviewed code.",
       "redistributable": true,
       "redistribution_restriction": "",
-      "sha256": "8b0be26111448403e93cb19d7885718032084c7ba73abfc620da25124840b8de",
+      "sha256": "24b35519697a2545f854492c3f2e1873bf35790ba9ff90c7962d9e859763d94d",
       "size_bytes": 2000,
       "synthetic": true
     },
@@ -311,7 +352,7 @@
         "pikepdf": "10.11.0",
         "qpdf": "12.3.2",
         "script": "generate.py",
-        "version": "1"
+        "version": "2"
       },
       "hazards": [
         "configured_object_depth_exhaustion"
@@ -356,7 +397,7 @@
         "pikepdf": "10.11.0",
         "qpdf": "12.3.2",
         "script": "generate.py",
-        "version": "1"
+        "version": "2"
       },
       "hazards": [
         "configured_page_limit",
@@ -380,12 +421,12 @@
       "author": "McQuillen Interactive Pty. Ltd.",
       "derived_from": null,
       "expected_artifacts": {
-        "inventory_v1": [
+        "static_text_package_v1": [
           "pdf_inventory"
         ]
       },
       "expected_findings": {
-        "inventory_v1": [
+        "static_text_package_v1": [
           "pdf.limit.decode_ratio"
         ]
       },
@@ -396,7 +437,7 @@
         "pikepdf": "10.11.0",
         "qpdf": "12.3.2",
         "script": "generate.py",
-        "version": "1"
+        "version": "2"
       },
       "hazards": [
         "bounded_decompression_ratio"
@@ -418,13 +459,13 @@
       "author": "McQuillen Interactive Pty. Ltd.",
       "derived_from": null,
       "expected_artifacts": {
-        "inventory_v1": [
+        "static_text_package_v1": [
           "pdf_inventory"
         ]
       },
       "expected_findings": {
-        "inventory_v1": [
-          "pdf.limit.stream_filters"
+        "static_text_package_v1": [
+          "pdf.policy.static_text.member_stream_filter"
         ]
       },
       "fixture_id": "excessive-filters",
@@ -434,7 +475,7 @@
         "pikepdf": "10.11.0",
         "qpdf": "12.3.2",
         "script": "generate.py",
-        "version": "1"
+        "version": "2"
       },
       "hazards": [
         "excessive_filters"
@@ -456,12 +497,12 @@
       "author": "McQuillen Interactive Pty. Ltd.",
       "derived_from": null,
       "expected_artifacts": {
-        "inventory_v1": [
+        "static_text_package_v1": [
           "pdf_inventory"
         ]
       },
       "expected_findings": {
-        "inventory_v1": [
+        "static_text_package_v1": [
           "pdf.structure.parser_warning"
         ]
       },
@@ -472,7 +513,7 @@
         "pikepdf": "10.11.0",
         "qpdf": "12.3.2",
         "script": "generate.py",
-        "version": "1"
+        "version": "2"
       },
       "hazards": [
         "parser_warning_without_recovery"
@@ -494,12 +535,12 @@
       "author": "McQuillen Interactive Pty. Ltd.",
       "derived_from": null,
       "expected_artifacts": {
-        "inventory_v1": [
+        "static_text_package_v1": [
           "pdf_inventory"
         ]
       },
       "expected_findings": {
-        "inventory_v1": [
+        "static_text_package_v1": [
           "pdf.structure.invalid"
         ]
       },
@@ -510,7 +551,7 @@
         "pikepdf": "10.11.0",
         "qpdf": "12.3.2",
         "script": "generate.py",
-        "version": "1"
+        "version": "2"
       },
       "hazards": [
         "malformed_xref"
@@ -532,12 +573,12 @@
       "author": "McQuillen Interactive Pty. Ltd.",
       "derived_from": null,
       "expected_artifacts": {
-        "inventory_v1": [
+        "static_text_package_v1": [
           "pdf_inventory"
         ]
       },
       "expected_findings": {
-        "inventory_v1": [
+        "static_text_package_v1": [
           "pdf.structure.invalid"
         ]
       },
@@ -548,7 +589,7 @@
         "pikepdf": "10.11.0",
         "qpdf": "12.3.2",
         "script": "generate.py",
-        "version": "1"
+        "version": "2"
       },
       "hazards": [
         "malformed_object_stream",
@@ -569,6 +610,6 @@
       "synthetic": true
     }
   ],
-  "generated_by": "validibot-pdf-corpus-generator/1",
+  "generated_by": "validibot-pdf-corpus-generator/2",
   "schema_version": "validibot.pdf_test_corpus.v1"
 }

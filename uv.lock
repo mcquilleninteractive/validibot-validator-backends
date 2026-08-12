@@ -96,6 +96,15 @@ wheels = [
 ]
 
 [[package]]
+name = "atheris"
+version = "3.1.0"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4e/18/e19718c384fd7d801d0da7485407daef9af6194b6d8c8818175bec5efec6/atheris-3.1.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:f8a9f51ce8369026e8eb7b7174835e8c4c85a1a6db5d9add36c15100779d2a39", size = 36800563, upload-time = "2026-06-17T00:04:04.559Z" },
+    { url = "https://files.pythonhosted.org/packages/c3/ff/ae7a5bfe99033e510bea4ed09934e636d93777317a48147369bc0dc2b71f/atheris-3.1.0-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:315a0b5c819852b1ffe1ca72efc389c7724881f2c33e4aacb8c6bcec49bd5011", size = 36772569, upload-time = "2026-06-17T00:04:07.702Z" },
+]
+
+[[package]]
 name = "attrs"
 version = "26.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1701,7 +1710,7 @@ wheels = [
 
 [[package]]
 name = "validibot-validator-backends"
-version = "0.16.2"
+version = "0.16.3"
 source = { editable = "." }
 dependencies = [
     { name = "google-auth" },
@@ -1746,6 +1755,11 @@ shacl = [
     { name = "rdflib" },
 ]
 
+[package.dev-dependencies]
+fuzz = [
+    { name = "atheris" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "defusedxml", marker = "extra == 'fmu'", specifier = "==0.7.1" },
@@ -1776,6 +1790,9 @@ requires-dist = [
     { name = "xlrd", marker = "extra == 'portfolio-manager'", specifier = "==2.0.2" },
 ]
 provides-extras = ["dev", "energyplus", "fmu", "shacl", "schematron", "portfolio-manager", "pdf"]
+
+[package.metadata.requires-dev]
+fuzz = [{ name = "atheris", specifier = "==3.1.0" }]
 
 [[package]]
 name = "wcwidth"

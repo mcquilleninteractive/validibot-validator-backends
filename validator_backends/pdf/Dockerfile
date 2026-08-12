@@ -56,4 +56,4 @@ COPY --chown=validibot:validibot validator_backends/pdf/*.py \
     /app/validator_backends/pdf/
 
 USER validibot
-CMD ["python", "-m", "validator_backends.core.entrypoint", "--backend-module", "validator_backends.pdf.main"]
+CMD ["python", "-m", "validator_backends.core.entrypoint", "--protect-process-secrets", "--backend-module", "validator_backends.pdf.main"]

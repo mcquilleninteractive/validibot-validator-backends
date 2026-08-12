@@ -12,6 +12,7 @@ from validator_backends.core.callback_client import post_callback
 from validator_backends.core.envelope_loader import get_output_uri, load_input_envelope
 from validator_backends.core.error_reporting import report_fatal
 from validator_backends.core.output_identity import output_identity_for
+from validator_backends.core.process_hardening import protect_current_process_secrets
 from validator_backends.core.replay import replay_existing_output
 from validator_backends.core.report_artifacts import upload_file_artifact
 from validator_backends.core.storage_client import upload_envelope
@@ -43,6 +44,9 @@ _ARTIFACT_CONTRACT = {
 
 def main() -> int:
     """Execute one attempt, publish artifacts/envelope, and post its callback."""
+    # The qpdf decoder is a same-UID child. Keep attempt tokens, callback
+    # nonces, and other in-memory authority outside its ptrace/procfs reach.
+    protect_current_process_secrets()
     started_at = datetime.now(UTC)
     try:
         input_envelope = load_input_envelope(PdfInputEnvelope)

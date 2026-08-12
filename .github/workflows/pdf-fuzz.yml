@@ -1,0 +1,52 @@
+name: PDF coverage-guided fuzzing
+
+on:
+  schedule:
+    - cron: "23 4 * * 2"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pdf-fuzz:
+    name: Bounded PDF engine fuzzing
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825a76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.11.19"
+
+      - name: Set up Python
+        run: uv python install 3.13
+
+      - name: Install the pinned PDF and fuzz environments
+        run: uv sync --frozen --extra pdf --group fuzz
+
+      - name: Run the bounded coverage-guided campaign
+        run: |
+          mkdir -p fuzz-artifacts fuzz-corpus
+          cp validator_backends/pdf/tests/fixtures/golden/*.pdf fuzz-corpus/
+          cp validator_backends/pdf/tests/fixtures/hostile/*.pdf fuzz-corpus/
+          uv run --frozen --extra pdf --group fuzz \
+            python fuzz/pdf_engine_fuzzer.py fuzz-corpus \
+            -max_total_time=300 \
+            -timeout=5 \
+            -rss_limit_mb=1536 \
+            -max_len=2097152 \
+            -artifact_prefix=fuzz-artifacts/
+
+      - name: Preserve minimized failures
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pdf-fuzz-regressions
+          path: fuzz-artifacts/
+          if-no-files-found: ignore
+          retention-days: 14

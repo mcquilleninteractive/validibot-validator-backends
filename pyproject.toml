@@ -2,7 +2,7 @@
 
 [project]
 name = "validibot-validator-backends"
-version = "0.16.2"
+version = "0.16.3"
 description = "Validibot advanced validator containers"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -94,6 +94,14 @@ portfolio_manager = [
 # qpdf's structural parser without adding a renderer or script engine.
 pdf = [
     "pikepdf==10.11.0",
+]
+
+[dependency-groups]
+# Scheduled coverage-guided PDF fuzzing is deliberately separate from the
+# ordinary developer environment because Atheris carries a large libFuzzer
+# runtime. The bounded CI workflow installs this group explicitly.
+fuzz = [
+    "atheris==3.1.0",
 ]
 
 [project.urls]
