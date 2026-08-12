@@ -43,6 +43,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   FileAttachment annotations. Reject other member routes and types, object
   metadata, active content, multimedia, 3D, Collections, encryption, and
   unsafe or ambiguous names.
+- Use `policy`, `policy_results`, and policy-oriented symbols throughout the
+  unreleased PDF wire contract instead of the obsolete `profile` terminology.
 - Stage PDF members, typed selections, inventory JSON, XMP, and deterministic
   ZIP output in the attempt workspace, then stream them through one verified
   upload path instead of retaining large artifact byte copies in Python.

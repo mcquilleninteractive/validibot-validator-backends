@@ -12,8 +12,10 @@ import json
 import zipfile
 from io import BytesIO
 from pathlib import Path
+from typing import Literal, assert_never
 
 import pikepdf
+import pytest
 
 from validator_backends.pdf import engine as pdf_engine
 from validator_backends.pdf.engine import inspect_pdf
@@ -26,6 +28,13 @@ _FIXTURE_MEDIA_TYPES_BY_SUFFIX = {
     ".p21": "model/step",
     ".xml": "application/xml",
 }
+_VALID_XMP = (
+    b'<x:xmpmeta xmlns:x="adobe:ns:meta/">'
+    b'<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">'
+    b'<rdf:Description rdf:about=""/>'
+    b"</rdf:RDF></x:xmpmeta>"
+)
+XmpFilterViolation = Literal["decode-parameters", "unsupported-filter"]
 
 
 def _pdf_with_attachments(
@@ -94,6 +103,56 @@ def _pdf_with_uri_link(tmp_path: Path) -> Path:
     page.obj["/Annots"] = pikepdf.Array([annotation])
     path = tmp_path / "linked.pdf"
     pdf.save(path)
+    return path
+
+
+def _pdf_with_signature_dictionary(tmp_path: Path) -> Path:
+    """Create a certification-signature dictionary without adding a form."""
+    pdf = pikepdf.new()
+    pdf.add_blank_page(page_size=(200, 200))
+    signature = pdf.make_indirect(
+        pikepdf.Dictionary(
+            Type=pikepdf.Name("/Sig"),
+            Filter=pikepdf.Name("/Adobe.PPKLite"),
+            SubFilter=pikepdf.Name("/adbe.pkcs7.detached"),
+            ByteRange=pikepdf.Array([0, 0, 0, 0]),
+            Contents=pikepdf.String("deliberately-not-a-validated-signature"),
+        )
+    )
+    pdf.Root["/Perms"] = pikepdf.Dictionary(DocMDP=signature)
+    path = tmp_path / "signed.pdf"
+    pdf.save(path)
+    return path
+
+
+def _pdf_with_xmp_filter_violation(
+    tmp_path: Path,
+    *,
+    violation: XmpFilterViolation,
+) -> Path:
+    """Create valid document XMP whose stream dictionary violates the policy."""
+    source = _pdf_with_attachments(tmp_path, {})
+    path = tmp_path / f"xmp-{violation}.pdf"
+    with pikepdf.Pdf.open(source) as pdf:
+        metadata = pdf.make_stream(_VALID_XMP)
+        if violation == "decode-parameters":
+            placeholder = b"/FixtureDecodeParms"
+            replacement = b"/DecodeParms       "
+            metadata["/FixtureDecodeParms"] = pikepdf.Dictionary(Predictor=1)
+        elif violation == "unsupported-filter":
+            placeholder = b"/FixtureFilter"
+            replacement = b"/Filter       "
+            metadata["/FixtureFilter"] = pikepdf.Name("/ASCIIHexDecode")
+        else:
+            assert_never(violation)
+        metadata["/Type"] = pikepdf.Name("/Metadata")
+        metadata["/Subtype"] = pikepdf.Name("/XML")
+        pdf.Root["/Metadata"] = metadata
+        pdf.save(path, compress_streams=False, fix_metadata_version=False)
+    serialized = path.read_bytes()
+    assert serialized.count(placeholder) == 1
+    assert len(placeholder) == len(replacement)
+    path.write_bytes(serialized.replace(placeholder, replacement, 1))
     return path
 
 
@@ -305,6 +364,23 @@ def test_member_decode_parameters_are_rejected_before_extraction(tmp_path: Path)
     )
 
 
+@pytest.mark.parametrize("violation", ["decode-parameters", "unsupported-filter"])
+def test_document_xmp_filter_violations_are_rejected_before_decode(
+    tmp_path: Path,
+    violation: XmpFilterViolation,
+) -> None:
+    """Document XMP has its own exact filter boundary and regression coverage."""
+    path = _pdf_with_xmp_filter_violation(tmp_path, violation=violation)
+
+    result = inspect_pdf(path, source_name=path.name, inputs=PdfInputs())
+
+    assert result.status == ValidationStatus.FAILED_VALIDATION
+    assert set(result.artifact_payloads) == {"pdf_inventory"}
+    assert any(
+        message.code == "pdf.policy.static_text.xmp_stream_filter" for message in result.messages
+    )
+
+
 def test_document_xmp_requires_explicit_metadata_xml_identity(tmp_path: Path) -> None:
     """An arbitrary catalog stream cannot become XMP solely by parsing as XML."""
     source = _pdf_with_attachments(tmp_path, {})
@@ -397,6 +473,19 @@ def test_static_text_policy_ignores_ordinary_uri_links(tmp_path: Path) -> None:
     assert result.outputs.inventory.interactive_features.get("uri_actions", 0) == 0
     assert "uri_action_targets" not in result.outputs.inventory.interactive_features
     assert all("uri" not in message.code for message in result.messages)
+
+
+def test_static_text_policy_ignores_a_signature_dictionary(tmp_path: Path) -> None:
+    """A signature dictionary alone is not interpreted or made a policy result."""
+    path = _pdf_with_signature_dictionary(tmp_path)
+
+    result = inspect_pdf(path, source_name=path.name, inputs=PdfInputs())
+
+    assert result.status == ValidationStatus.SUCCESS
+    inventory = result.outputs.inventory.model_dump(mode="json")
+    assert "signatures" not in inventory
+    assert all("signature" not in message.code for message in result.messages)
+    assert set(result.artifact_payloads) == {"pdf_inventory"}
 
 
 def test_extraction_bundle_is_deterministic_and_uses_hash_paths(

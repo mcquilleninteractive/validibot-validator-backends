@@ -40,7 +40,7 @@ from validator_backends.pdf.stream_decoder import (
     StreamDecodeTimeout,
 )
 from validibot_shared.pdf import (
-    PDF_STATIC_TEXT_PROFILE,
+    PDF_STATIC_TEXT_POLICY,
     PdfCollection,
     PdfDeclaration,
     PdfDocumentFacts,
@@ -510,7 +510,7 @@ def inspect_pdf(
                 findings=findings,
             )
             _apply_static_text_member_policy(records, findings=findings)
-            _apply_static_text_profile(
+            _apply_static_text_policy(
                 interactive,
                 collection_count=len(collections),
                 findings=findings,
@@ -594,9 +594,9 @@ def inspect_pdf(
                 metadata=metadata,
                 interactive_features=interactive,
                 members=members,
-                profile_results=[
+                policy_results=[
                     {
-                        "profile": PDF_STATIC_TEXT_PROFILE,
+                        "policy": PDF_STATIC_TEXT_POLICY,
                         "passed": passed,
                     }
                 ],
@@ -1749,7 +1749,7 @@ def _interactive_features(
     return dict(sorted(counts.items()))
 
 
-def _apply_static_text_profile(
+def _apply_static_text_policy(
     interactive,
     *,
     collection_count: int,
@@ -2007,7 +2007,7 @@ def _failure_inventory(
             header_version=header_version,
             encrypted=encrypted,
         ),
-        profile_results=[{"profile": PDF_STATIC_TEXT_PROFILE, "passed": False}],
+        policy_results=[{"policy": PDF_STATIC_TEXT_POLICY, "passed": False}],
         limits=inputs.limits.model_dump(mode="json"),
         finding_summary=_finding_summary(findings),
     )
@@ -2068,7 +2068,7 @@ def _encrypted_pdf_failure(
             **_encryption_facts(pdf),
             linearized=bool(pdf.is_linearized),
         ),
-        profile_results=[{"profile": PDF_STATIC_TEXT_PROFILE, "passed": False}],
+        policy_results=[{"policy": PDF_STATIC_TEXT_POLICY, "passed": False}],
         limits=inputs.limits.model_dump(mode="json"),
         finding_summary=_finding_summary(findings),
     )
