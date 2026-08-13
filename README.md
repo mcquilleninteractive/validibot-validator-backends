@@ -236,15 +236,15 @@ Current independently offered versions are:
 
 | Backend | Version |
 | --- | --- |
-| EnergyPlus | `0.16.2` |
-| FMU | `0.15.6` |
-| SHACL | `0.15.6` |
-| Schematron | `0.15.6` |
-| Portfolio Manager | `0.16.6` |
-| PDF | `0.1.2` |
+| EnergyPlus | `0.16.4` |
+| FMU | `0.15.8` |
+| SHACL | `0.15.8` |
+| Schematron | `0.15.8` |
+| Portfolio Manager | `0.16.8` |
+| PDF | `0.1.3` |
 
-Release tags are backend-specific, such as `energyplus-v0.16.2` and
-`portfolio_manager-v0.16.6`. A failed or published tag is never moved or
+Release tags are backend-specific, such as `energyplus-v0.16.4` and
+`portfolio_manager-v0.16.8`. A failed or published tag is never moved or
 reused; the correction receives a new backend version.
 
 ### Reproducible dependencies and legal evidence
@@ -285,7 +285,7 @@ version axes:
 
 | Axis | Value | Bumped when |
 |---|---|---|
-| Wrapper version (`backends.toml` `release_version`) | `0.16.2` | Wrapper code, image layout, or output semantics change |
+| Wrapper version (`backends.toml` `release_version`) | `0.16.4` | Wrapper code, image layout, or output semantics change |
 | Bundled EnergyPlus binary | `25.2.0` | A newer EnergyPlus release is downloaded |
 
 These are independent:
@@ -305,7 +305,7 @@ library version. Bumping the bundled library does NOT imply bumping
 ```bash
 docker image inspect validibot-validator-backend-energyplus:latest \
   --format '{{ index .Config.Labels "org.opencontainers.image.version" }}'
-# → 0.16.0
+# → 0.16.4
 
 docker image inspect validibot-validator-backend-energyplus:latest \
   --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}'

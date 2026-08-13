@@ -86,6 +86,7 @@ Available backends today:
 - `ghcr.io/mcquilleninteractive/validibot-validator-backend-shacl`
 - `ghcr.io/mcquilleninteractive/validibot-validator-backend-schematron`
 - `ghcr.io/mcquilleninteractive/validibot-validator-backend-portfolio-manager`
+- `ghcr.io/mcquilleninteractive/validibot-validator-backend-pdf`
 
 Each release publishes both `:vX.Y.Z` (immutable, recommended for
 production) and `:latest` (mutable convenience pointer for
@@ -120,12 +121,12 @@ A fresh release ships these values:
 
 | Backend | Wrapper version | Bundled library |
 |---|---|---|
-| EnergyPlus | `0.16.2` (`backends.toml`) | EnergyPlus 25.2.0 (downloaded in the Dockerfile) |
-| FMU | `0.15.6` (`backends.toml`) | FMPy 0.3.30 |
-| SHACL | `0.15.6` (`backends.toml`) | pySHACL 0.40.1 |
-| Schematron | `0.15.6` (`backends.toml`) | SaxonC-HE 13.0.0 |
-| Portfolio Manager | `0.16.6` (`backends.toml`) | openpyxl 3.1.5 and xlrd 2.0.2 |
-| PDF | `0.1.2` (`backends.toml`) | pikepdf 10.11.0 with qpdf 12.3.2 |
+| EnergyPlus | `0.16.4` (`backends.toml`) | EnergyPlus 25.2.0 (downloaded in the Dockerfile) |
+| FMU | `0.15.8` (`backends.toml`) | FMPy 0.3.30 |
+| SHACL | `0.15.8` (`backends.toml`) | pySHACL 0.40.1 |
+| Schematron | `0.15.8` (`backends.toml`) | SaxonC-HE 13.0.0 |
+| Portfolio Manager | `0.16.8` (`backends.toml`) | openpyxl 3.1.5 and xlrd 2.0.2 |
+| PDF | `0.1.3` (`backends.toml`) | pikepdf 10.11.0 with qpdf 12.3.2 |
 
 Bumping the wrapper version does NOT imply bumping the bundled library,
 and vice versa. They iterate independently.
@@ -137,11 +138,12 @@ Edit only the backend's `release_version` in `backends.toml`:
 ```toml
 [[backend]]
 slug = "fmu"
-release_version = "0.15.6"
+release_version = "0.15.9"
 ```
 
-The next `just build fmu` stamps `0.15.6`. Once the change is on `main`,
-`just release fmu` signs and publishes `fmu-v0.15.6`; it does not build another
+The next `just build fmu` stamps the version recorded in the edited inventory.
+Once the change is on `main`, `just release fmu` signs and publishes that
+backend-specific version; it does not build another
 backend. Use `just release-all` when versions for several backends changed in
 the same commit.
 
