@@ -38,20 +38,20 @@ classifiers = [
 dependencies = [
     "pydantic==2.13.5",
     "httpx==0.28.1",
-    "google-cloud-storage==3.13.1",
-    "google-auth==2.57.0",
+    "google-cloud-storage==3.15.0",
+    "google-auth==2.59.0",
     "requests==2.34.2",
-    "sentry-sdk==2.68.1",
+    "sentry-sdk==2.71.0",
     "validibot-shared==0.28.0",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "hypothesis==6.167.1",
+    "hypothesis==6.168.3",
     "pytest==9.1.1",
-    "pytest-mock==3.15.1",
+    "pytest-mock==3.16.0",
     "pytest-cov==7.1.0",
-    "ruff==0.16.5",
+    "ruff==0.16.9",
     "mypy==2.3.1",
 ]
 
@@ -63,7 +63,7 @@ energyplus = [
 # FMU validator dependencies (for local dev/testing)
 fmu = [
     "defusedxml==0.7.1",
-    "fmpy==0.3.31",
+    "fmpy==0.3.32",
 ]
 
 # SHACL validator dependencies (for local dev/testing). Pinned to match the
@@ -73,7 +73,7 @@ shacl = [
     "pyshacl==0.40.1",
     "owlrl==7.6.2",
     "defusedxml==0.7.1",
-    "lxml==6.1.2",
+    "lxml==6.1.3",
 ]
 
 # Schematron validator dependencies (for local dev/testing). SaxonC-HE is
@@ -93,7 +93,7 @@ portfolio_manager = [
 # PDF package inventory and bounded embedded-member extraction. pikepdf exposes
 # qpdf's structural parser without adding a renderer or script engine.
 pdf = [
-    "pikepdf==10.12.0",
+    "pikepdf==10.15.0",
 ]
 
 [dependency-groups]
