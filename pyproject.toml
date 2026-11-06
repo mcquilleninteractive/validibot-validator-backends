@@ -36,23 +36,23 @@ classifiers = [
 
 # Core dependencies shared by all validators
 dependencies = [
-    "pydantic==2.13.5",
+    "pydantic==2.14.2",
     "httpx==0.28.1",
-    "google-cloud-storage==3.13.1",
-    "google-auth==2.57.0",
+    "google-cloud-storage==3.17.1",
+    "google-auth==2.62.1",
     "requests==2.34.2",
-    "sentry-sdk==2.68.1",
+    "sentry-sdk==2.73.0",
     "validibot-shared==0.28.0",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "hypothesis==6.167.1",
-    "pytest==9.1.1",
-    "pytest-mock==3.15.1",
+    "hypothesis==6.170.14",
+    "pytest==9.2.0",
+    "pytest-mock==3.17.0",
     "pytest-cov==7.1.0",
-    "ruff==0.16.5",
-    "mypy==2.3.1",
+    "ruff==0.17.3",
+    "mypy==2.4.1",
 ]
 
 # EnergyPlus validator dependencies (for local dev/testing)
@@ -63,24 +63,24 @@ energyplus = [
 # FMU validator dependencies (for local dev/testing)
 fmu = [
     "defusedxml==0.7.1",
-    "fmpy==0.3.31",
+    "fmpy==0.3.32",
 ]
 
 # SHACL validator dependencies (for local dev/testing). Pinned to match the
 # community validibot repo so behaviour is identical across the boundary.
 shacl = [
     "rdflib==7.6.0",
-    "pyshacl==0.40.1",
+    "pyshacl==0.40.2",
     "owlrl==7.6.2",
     "defusedxml==0.7.1",
-    "lxml==6.1.2",
+    "lxml==6.1.3",
 ]
 
 # Schematron validator dependencies (for local dev/testing). SaxonC-HE is
 # the chosen XSLT 2.0 engine (ADR-2026-07-01 D4, MPL-2.0); defusedxml pins
 # match the community repo's hardened-XML guard.
 schematron = [
-    "saxonche==13.0.0",
+    "saxonche==13.1.1",
     "defusedxml==0.7.1",
 ]
 
@@ -93,7 +93,7 @@ portfolio_manager = [
 # PDF package inventory and bounded embedded-member extraction. pikepdf exposes
 # qpdf's structural parser without adding a renderer or script engine.
 pdf = [
-    "pikepdf==10.12.0",
+    "pikepdf==10.17.0",
 ]
 
 [dependency-groups]
